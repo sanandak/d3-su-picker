@@ -1,0 +1,19 @@
+{
+  "name": "psql-app",
+  "main": "index.html",
+  "single-instance": true,
+  "window": {
+    "title": "psql - PSU Quick Look",
+    "width": 900,
+    "height": 1000,
+    "toolbar": true
+  },
+  "chromium-args": "--child-clean-exit",
+  "dependencies": {
+    "d3": "^4.6.0",
+    "d3-peaks": "0.0.1",
+    "ng-filedialog": "^1.0.0",
+    "segy-js": "git+https://github.com/sanandak/segy-js.git",
+    "sprintf-js": "^1.0.3"
+  }
+}

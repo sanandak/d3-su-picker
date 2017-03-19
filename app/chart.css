@@ -1,0 +1,62 @@
+axis path,
+.axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+
+.ctext {
+    font-family: monospace;
+    font-size: 14;
+    text-anchor: middle;
+
+}
+
+.tick {
+    font: 10px sans-serif;
+}
+
+.line {
+    fill: none;
+    stroke: #000;
+    stroke-width: .5px;
+}
+
+.fline {
+    fill: none;
+    stroke: #000;
+    stroke-width: .5px;
+}
+
+.ffills {
+    fill: url(#focus-area-gradient)
+}
+
+/*
+.ffills {
+    clip-path: url(#clip);
+}
+.fline {
+    clip-path: url(#clip);
+}
+*/
+
+.cursor {
+    fill: #d2e7d2;
+    fill-opacity: 0.2;
+    stroke: #228b22;
+    stroke-width: 1px;
+}
+
+.overlay {
+    fill: none;
+    stroke: none;
+    pointer-events: all;
+}
+
+
+.zoom {
+  cursor: move;
+  fill: none;
+  pointer-events: all;
+}
