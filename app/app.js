@@ -676,8 +676,8 @@ app.directive('d3Ricker', function() {
       .text(cursorText)
 
     /* define the pick line vars (needed by brush?) */
-    var picks = [];
-    var pickg = focus.append('g');
+      var picks = [];
+      var pickg = focus.append('g');
 
     /* handle the brush */
     var brush = d3.brushY()
@@ -868,16 +868,48 @@ app.directive('d3Ricker', function() {
                 return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
               });
 
-
               updateFocusLines();
               updateFocusAreas();
-
-
-
             break;
+            
           case 'P':
             console.log('P')
             ffidIdx = Math.max(0, --ffidIdx);
+            traces = tracesByFFID[ffidIdx].values;
+            ntrcs = traces.length;
+            console.log(traces, ntrcs, ffidIdx);
+
+            l = lineg.selectAll('.lines')
+              .data(traces, function(d) {return d.id;});
+            l.exit().remove();
+            l.enter()
+              .append('path')
+              .attr('class', 'lines')
+              .attr('d', function(d) {
+                 return line(d.samps);
+               })
+              .attr('transform', function(d, i) {
+                 xofs = (w / ntrcs * i);
+                return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
+               });
+
+            l = areag.selectAll('.fills')
+              .data(traces, function(d) {return d.id;})
+            l.exit().remove();
+            l.enter()
+              .append('path')
+              .attr('class', 'fills')
+              .attr('fill', 'url(#area-gradient)')
+              .attr('d', function(d) {
+                 return area(d.samps);
+              })
+              .attr('transform', function(d, i) {
+                xofs = (w / ntrcs * i);
+                return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
+              });
+
+              updateFocusLines();
+              updateFocusAreas();
             break;
 
             // move cursor left/right
@@ -918,12 +950,12 @@ app.directive('d3Ricker', function() {
                 return focusLine(d.samps);
               })
             focus.selectAll('.ffills')
-              .transition()
-              .duration(1000)
-              .ease(d3.easeQuad)
-              .attr('d', function(d) {
-                return focusArea(d.samps);
-              })
+                    .transition()
+                    .duration(1000)
+                    .ease(d3.easeQuad)
+                    .attr('d', function(d) {
+                        return focusArea(d.samps);
+                    })
             }
             var i = bisectT(traces[cursTrc].samps, cursT);
             xofsFoc = (w2 / ntrcsFoc * (cursTrc - firstTrc));
