@@ -1,14 +1,38 @@
 # d3-su-picker
 
-A d3-based SU (Seismic Unix) viewer and picker.
+A d3-based SU (Seismic Unix) viewer and picker.  The viewer is built
+on `nwjs`, a technology that let's one run web-based applications on
+the desktop, including opening and saving local files.  The display is
+through `d3`, a javascript library for visualization.
+
+This tool allows one to _pick_ the times of events of interest in a
+seismic file and save the picks to a text file.
 
 ## Installation
 
-  git clone https://github.com/sanandak/d3-su-picker
+Download nwjs  (http://nwjs.io)
+
+Install `node` (http://nodejs.org), which includes `npm` (the node
+package manager)
+
+Install `bower` (another package manager(?))
+    npm install bower -g
+  
+    git clone https://github.com/sanandak/d3-su-picker
+    cd d3-su-picker
+    # install the required packages
+    bower install
+    npm install
+
+## Requirements
+
+  These are installed by `npm` and `bower`
+  - d3js v4
+  - segy-js
+  - sprintf-js
+  - angularjs
   
 ## Usage
-
-  Download `nwjs` from http://nwjs.io
 
     /path/to/nwjs /path/to/d3-su-picker
 
@@ -46,6 +70,10 @@ The saved picks file is a JSON file that is an array of traces.  Each array memb
 - `samps` (an array)
 
 Each member of `samps` is an object with `t` and `v` fields: `{t: 0, v: .01}`
+
+## TODO
+
+  Read SEG-Y files.
 
 
   

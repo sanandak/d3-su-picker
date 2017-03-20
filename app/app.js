@@ -83,6 +83,8 @@ app.controller('MainCtrl', ['$scope', '$interval', '$timeout', function($scope, 
     }, 'file.pks', '.pks')
     };
   */
+
+  /*
   var wsURL = 'ws://localhost:9191/websocket';
   var ws = new WebSocket(wsURL);
   ws.onopen = function() {
@@ -93,7 +95,7 @@ app.controller('MainCtrl', ['$scope', '$interval', '$timeout', function($scope, 
     var msg = JSON.parse(evt.data);
     console.log(msg);
   };
-
+  */
 }]);
 
 app.directive('d3Ricker', function() {
@@ -883,6 +885,7 @@ app.directive('d3Ricker', function() {
 
           updateCursor();
 
+          // dim other traces
           fareag.selectAll('.ffills')
             .attr('fill-opacity', function(d,i) {
 	      //                console.log('hl', i, cursTrc, firstTrc);
@@ -900,53 +903,63 @@ app.directive('d3Ricker', function() {
           if(idx >= 0)
             pickedTraces.splice(idx,1); // remove it
 
-          console.log(idx, pickedTraces);
+          // console.log(idx, pickedTraces);
           updatePicks();
+
+          // tell the controller about the changes.
+          scope.setpicks({picks: pickedTraces});
           break;
           
           // pick the current value
         case 'p':
-          var i = bisectT(traces[cursTrc].samps, cursT);
           var r = vScale2.range();
           var trchtFoc = (r[1] - r[0]) / ntrcsFoc;
-          // am I re-picking?
-          
+
           traces[cursTrc].pickT = cursT;
           traces[cursTrc].pickSamp = i;
-          pickedTraces.push(traces[cursTrc]);
+
+          // am I re-picking?  Search for cursTrc id in pickedTraces
+          var idx = pickedTraces.map(function(d) {return d.id;})
+              .indexOf(traces[cursTrc].id);
+          if (idx >= 0) { // found it...
+            pickedTraces[idx] = traces[cursTrc];
+          } else { // new pick
+            pickedTraces.push(traces[cursTrc]);
+          }
+          // tell the controller about it...
           scope.setpicks({picks: pickedTraces});
           console.log('pick', firstTrc, traces[cursTrc]);
 
-          // draw the pick line
+          // update the pick line (if this is a re-pick)
           pickg
             .selectAll('.picks')
             .transition()
             .attr('y', function(d) {
               return tScale2(d.pickT) - 1;
             })
+
+          // or draw a new one.
           pickg
             .selectAll('.picks')
             .data(traces
-                  .filter(function(d){return typeof d.pickT !== 'undefined';}), function(d) {return d.id;})
+                  .filter(function(d){
+                    return typeof d.pickT !== 'undefined';}),
+                  function(d) {return d.id;})
             .enter()
             .append('rect')
             .attr('class', 'picks')
-            .attr('y', function(d) {
-              return tScale2(d.pickT);
-            })
-            .attr('x', function(d) {
-              return vScale2(0) / ntrcsFoc - trchtFoc / 2;
-            })
+            .attr('y', function(d) {return tScale2(d.pickT);})
+            .attr('x', function(d) {return vScale2(0)/ntrcsFoc - trchtFoc/2;})
             .attr('width', trchtFoc)
             .attr('height', 2)
             .attr('transform', function(d) {
               xofsFoc = (w2 / ntrcsFoc * (d.tracens-firstTrc));
-              console.log('pick enter',d, xofsFoc);
+              //console.log('pick enter',d, xofsFoc);
               return 'translate(' + xofsFoc + ',0)';
             })
             .attr('stroke', 'none')
             .attr('fill-opacity', 0.5)
-            .attr('fill', 'black')
+            .attr('fill', 'black');
           /*
             ttpts
             .selectAll('.ttpts')
@@ -979,13 +992,6 @@ app.directive('d3Ricker', function() {
             .attr('fill', 'blue')
           */
           break;
-
-          // save data
-        case 's':
-        case 'S':
-          console.log('picks', picks);
-          savedata();
-          break;
         }
 
         switch (d3.event.key) {
@@ -993,28 +999,26 @@ app.directive('d3Ricker', function() {
         case 'Z':
           var trange = tScale2.domain();
           var tlen = trange[1] - trange[0];
-          var dir = d3.event.shiftKey ? 4 : 1;
+          var dir = d3.event.shiftKey ? 4 : 1; // zoom in or out?
           var tmin = Math.max(0, cursT - (dir * tlen / 4));
           var tmax = Math.min(dt * (npts - 1), cursT + (dir * tlen / 4));
-          console.log(d3.event.key, d3.event.shiftKey, trange, tlen, dir, cursT, tmin, tmax);
+          //console.log(d3.event.key, d3.event.shiftKey, trange, tlen, dir, cursT, tmin, tmax);
           tScale2.domain([tmin, tmax])
           focus.select('.y-axis')
             .call(tAxis2)
           focus.selectAll('.fline')
-            .attr('d', function(d) {
-              return focusLine(d.samps);
-            })
+            .attr('d', function(d) {return focusLine(d.samps);})
           focus.selectAll('.ffills')
-            .attr('d', function(d) {
-              return focusArea(d.samps);
-            })
-          updateCursor()
+            .attr('d', function(d) {return focusArea(d.samps);})
+          
+          updateCursor();
 
+          // only the y coordinate changes when 
           pickg
             .selectAll('.picks')
             .attr('y', function(d) {
               return tScale2(d.pickT);
-            })
+            });
 
           break;
         }
@@ -1050,7 +1054,6 @@ app.directive('d3Ricker', function() {
               xofsFoc = (w2 / ntrcsFoc * (d.tracens - firstTrc));
               return 'translate(' + xofsFoc + ',0)';
             })
-
         }
         if (d3.event.key === 'T') {
           firstTrc = 0;
