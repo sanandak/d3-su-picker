@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html ng-app="psqlApp">
   <head>
-    <title>PSU Quick Look</title>
-    <script src="bower_components/d3/d3.js" charset="utf-8"></script>
-    <script src="node_modules/d3-peaks/build/d3-peaks.js" charset="utf-8"></script>
-    <script src="bower_components/angular/angular.js" charset="utf-8"></script>
-    <script src="node_modules/ng-filedialog/ng-filedialog.js" charset="utf-8"></script>
+    <title>d3-based SU Picker</title>
+    <script src="bower_components/d3/d3.min.js" charset="utf-8"></script>
+    <script src="bower_components/angular/angular.min.js" charset="utf-8"></script>
     <script src="app/app.js" charset="utf-8"></script>
 
     <link href="app/chart.css" rel="stylesheet">
@@ -13,14 +11,14 @@
   </head>
   <body>
     <div ng-controller="MainCtrl as mainctrl">
-      {{mainctrl.msg}}
-      FFID = {{mainctrl.theffid}}
       <input style="display:none" type="file" id="savefile" nwsaveas></input>
       <input style="display:none" type="file" id="openfile"></input>
 
       <div ng-hide="mainctrl.filename == null">
-        The file is:
-        {{mainctrl.filename}}
+        Current file: {{mainctrl.filename}}
+      </div>
+      <div ng-show="mainctrl.filename == null">
+	Use &#8984;O to open an SU file...
       </div>
       <div>
 	<d3-ricker ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
