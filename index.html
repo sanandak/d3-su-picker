@@ -20,6 +20,15 @@
       <div ng-show="mainctrl.filename == null">
 	Use &#8984;O to open an SU file...
       </div>
+
+      <!--
+      <div>
+        <progress value={{mainctrl.progressVal}} max={{mainctrl.progressMax}}></progress>
+      </div>
+       {{mainctrl.progressVal}},{{mainctrl.progressMax}}
+
+      -->
+      
       <div>
 	<d3-ricker ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
       </div>

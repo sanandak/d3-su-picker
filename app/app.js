@@ -13,18 +13,39 @@ var cryp = require('crypto');
 var readSU = require('segy-js').readSU;
 var fileio = require('./app/fileio.js')
 
-//var app = angular.module('psqlApp', ['ng-fileDialog']);
 var app = angular.module('psqlApp', []);
 
-//app.controller('MainCtrl', ['$scope', '$interval', '$timeout', 'FileDialog', function($scope, $interval, $timeout, FileDialog) {
-app.controller('MainCtrl', ['$scope', '$interval', '$timeout', function($scope, $interval, $timeout) {
+app.factory('ReadData', [function() {
+  var filename = null;
+  return {
+    set: function(d) {
+      filename = d;
+    },
+    get: function() {
+      return filename;
+    },
+  };
+}]);
+
+
+app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
 
   self = this;
   self.filename = null;
   self.msg = 'PSQL';
 
+  self.progressMax = 0;
+  self.progressVal = 0;
+
+  console.log(ReadData.get());
+  ReadData.set('hi tehre');
+  console.log(ReadData.get());
+
+
   var win = global.gui.Window.get();
-  console.log(win.menu)
+
+  // initMenu added 'File', and 'File->Open and Save'
+  // search for them here.
   var filemenu = win.menu.items
       .find(function(d) {
 	return d.label == 'File';
@@ -37,26 +58,52 @@ app.controller('MainCtrl', ['$scope', '$interval', '$timeout', function($scope, 
       .find(function(d) {
 	return d.label == 'Save';
       }) //, 'Save');
-  console.log(filemenu, openmenu, savemenu)
-  var dip;
-  var pickedHdrs;
+  //  console.log(filemenu, openmenu, savemenu)
+  var alldata;
+  var pickedTraces;
 
+  // when the user chooses "open", this function is called
   openmenu.on('click', function() {
+    // this function will "click" the (invisible) openfile
+    // button on the page, which will read the data
     var chooser = document.getElementById('openfile');
     //console.log(chooser);
 
     chooser.addEventListener('change', function() {
       var filepath = this.value;
+      var flist = this.files;// from Files API
       self.filename = filepath;
-      console.log(filepath);
-      dip = readSU(filepath);
-      console.log(dip);
-      self.data = dip;
+      console.log(this, this.files, filepath);
+
+      /*
+      var reader = new FileReader();
+      reader.onerror = function(event) {
+        console.log('error reading', event.target.error);
+      }
+      reader.onloadend = function(event) {
+        var contents = event.target.result;
+        console.log('file read', contents.byteLength);
+        //self.progressVal = 81000;
+      };
+      reader.onprogress = function(event) {
+        //console.log('progress', event.total, event.loaded);
+        self.progressMax = event.total;
+        self.progressVal = event.loaded;
+        $scope.$apply();
+      };
+
+      reader.readAsArrayBuffer(flist[0]);
+      */
+      
+      alldata = readSU(filepath);
+      console.log(alldata);
+      self.data = alldata;
       $scope.$apply();
     })
     chooser.click();
   });
-
+  
+  // when the user chooses "save", this function is called
   savemenu.on('click', function() {
     console.log('savemenu click');
     var chooser = document.getElementById('savefile');
@@ -64,106 +111,86 @@ app.controller('MainCtrl', ['$scope', '$interval', '$timeout', function($scope, 
     chooser.addEventListener('change', function() {
       var filepath = this.value;
       console.log(filepath);
-      fs.writeFileSync(filepath, JSON.stringify(pickedHdrs));
+      fs.writeFileSync(filepath, JSON.stringify(pickedTraces));
     })
     chooser.click();
   });
   
-
-  // from the directive
+  // when the directive updates picks, this function is called
+  // to update the local variable pickedTraces...
   self.setpicks = function(picks) {
-    pickedHdrs = picks;
+    pickedTraces = picks;
   }
-
-  /*
-    self.saveFile = function() {
-    console.log('savefile called');
-    FileDialog.saveAs(function(filename) {
-    console.log('filename', filename);
-    }, 'file.pks', '.pks')
-    };
-  */
-
-  /*
-  var wsURL = 'ws://localhost:9191/websocket';
-  var ws = new WebSocket(wsURL);
-  ws.onopen = function() {
-    console.log('ws opened');
-    ws.send('{"cmd":"getNodeFileTimes"}');
-  };
-  ws.onmessage = function(evt) {
-    var msg = JSON.parse(evt.data);
-    console.log(msg);
-  };
-  */
 }]);
 
-app.directive('d3Ricker', function() {
+/*
+ * d3-ricker will generate 2 windows: the main and zoom windows
+ * and allow picking
+ */
+app.directive('d3Ricker', ['ReadData', function(ReadData) {
   function link(scope, element, attr) {
-    //    var svgOuter = d3.select(element[0]).append('svg');
-    var data = scope.data;
-
-    /*
-      scope.$watch('data', function(newval, oldval, scope) {
-      console.log('data changed');
-      data = scope.data
-      }, true);
-    */
-
-    if (data === 'undefined') {
-      return;
-    } else {
-      console.log('ok');
-    }
+    console.log('dir', ReadData.get());
+    ReadData.set('hi directive');
+    console.log('dir', ReadData.get());
 
     var el = element[0];
+    
     var width = 900,
 	height = 600;
-    //    console.log(svgOuter.style('width'), svgOuter.style('height'));
-    //    svgOuter
-    //      .attr('width', width)
-    //      .attr('height', height)
+    
+    var data;
+    var dt,traces, currEns, ensIdx, pickedTraces;
+    var firstTrc, lastTrc, ntrcs, npts, traceLen, cursT, cursTrc;
+    var tracesByEnsemble;
 
-    //    console.log(svgOuter.style('width'), svgOuter.style('height'));
-    //var ffididx = scope.ffididx;
-    var ffids = scope.ffids;
+    /* init - label traces with unique id and sort */
+    var init = function () {
+      // label traces with unique id
+      data.traces.forEach(function(d) {
+        d.id = cryp.randomBytes(5).toString('hex');
+      });
+      //console.log(traces[0], traces[1])
 
-    var dt = data.dt;
-    // label traces with unique id
-    data.traces.forEach(function(d) {
-      d.id = cryp.randomBytes(5).toString('hex');
-    });
-    //console.log(traces[0], traces[1])
-
-    var tracesByFFID = d3.nest()
+      // group into ensembles
+      tracesByEnsemble = d3.nest()
 	.key(function(d) {
           return d.ffid;
 	})
 	.entries(data.traces);
-    // returns [{key:'0', values:[trc0, trc1, ...]}]
-
-    var traces = tracesByFFID[0].values;
-    var currFFID = tracesByFFID[0].key;
-    var ffidIdx = 0;
-
-    var pickedTraces = [];
+      // returns [{key:'0', values:[trc0, trc1, ...]}]
+      
+      traces = tracesByEnsemble[0].values;
+      currEns = tracesByEnsemble[0].key;
+      ensIdx = 0;
+      dt = data.dt;
+      pickedTraces = [];
 
     // add a "trace number within ensemble" header word
-    for(var i=0; i<tracesByFFID.length; i++) {
-      tracesByFFID[i].values.forEach(function(d,i) {
-        d.tracens = i;
-      });
+      for(var i=0; i<tracesByEnsemble.length; i++) {
+        tracesByEnsemble[i].values.forEach(function(d,i) {
+          d.tracens = i;
+        });
+      }
+      //console.log('ens', tracesByEnsemble, currEns);
+
+      firstTrc = 0;
+      lastTrc = traces.length - 1;
+      ntrcs = traces.length;
+      npts = traces[0].samps.length;
+      traceLen = (npts - 1) * dt;
+
+      cursT = Math.floor(npts/2) * dt;
+      cursTrc = Math.floor((lastTrc - firstTrc) / 2);
     }
-    console.log(tracesByFFID, currFFID);
 
-    var firstTrc = 0,
-	lastTrc = traces.length - 1;
-    var ntrcs = traces.length;
-    var npts = traces[0].samps.length;
-    var traceLen = (npts - 1) * dt;
+    data = scope.data;
+    init();
 
-    var cursT = Math.floor(npts/2) * dt;
-    cursTrc = Math.floor((lastTrc - firstTrc) / 2);
+    scope.$watch('data', function(newval, oldval, scope) {
+      console.log('data changed', newval, oldval);
+//      data = scope.data;
+//      init();
+    }, true);
 
     //console.log('ffid = ', ffids, ffididx);
     //console.log('traces = ', traces, 'dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
@@ -552,7 +579,7 @@ app.directive('d3Ricker', function() {
         .attr('transform', 'translate(' + xofsFoc + ',0)')
 
       
-      cursorText = sprintf('ffid %s trace: %d time: %.3f value: %+.3f', currFFID, cursTrc, cursT, traces[cursTrc].samps[sampNo].v);
+      cursorText = sprintf('ensemble %s trace: %d time: %.3f value: %+.3f', currEns, cursTrc, cursT, traces[cursTrc].samps[sampNo].v);
       focus.select('#ctext')
         .text(cursorText)
 
@@ -625,7 +652,7 @@ app.directive('d3Ricker', function() {
       .attr('cx', vScale2(traces[cursTrc].samps[sampNo].v) / ntrcsFoc)
       .attr('transform', 'translate(' + xofsFoc + ',0)')
 
-    var cursorText = sprintf('ffid %s trace: %d time: %.3f', currFFID, cursTrc, cursT);
+    var cursorText = sprintf('ensemble %s trace: %d time: %.3f', currEns, cursTrc, cursT);
     var cText = focus.append('g')
 	.append('text')
 	.attr('id', 'ctext')
@@ -666,8 +693,6 @@ app.directive('d3Ricker', function() {
     // function called when the brush is dragged
     function brushed() {
       var s = d3.event.selection || tScale.range();
-      //console.log(s)
-      //console.log(s.map(xScale.invert, xScale));
       tScale2.domain(s.map(tScale.invert, tScale));
       focus.select('.y-axis')
         .call(tAxis2)
@@ -683,7 +708,11 @@ app.directive('d3Ricker', function() {
           return focusArea(d.samps);
         })
 
-      updateCursor()
+      // put the cursor in the middle of the brushed window?
+      var d = tScale2.domain();
+      cursT = (d[1] - d[0])/2 + d[0];
+      console.log(d,cursT);
+      updateCursor();
       
     };
 
@@ -728,14 +757,14 @@ app.directive('d3Ricker', function() {
 
 
         switch (d3.event.key) {
-          // display next/prev ffid
+          // display next/prev ens
         case 'N':
-          console.log('N')
-          ffidIdx = Math.min(tracesByFFID.length-1, ++ffidIdx);
-          currFFID = tracesByFFID[ffidIdx].key;
-          traces = tracesByFFID[ffidIdx].values;
+          console.log('N', tracesByEnsemble)
+          ensIdx = Math.min(tracesByEnsemble.length-1, ++ensIdx);
+          currEns = tracesByEnsemble[ensIdx].key;
+          traces = tracesByEnsemble[ensIdx].values;
           ntrcs = traces.length;
-          console.log(traces, ntrcs, ffidIdx);
+          console.log(traces, ntrcs, ensIdx);
 
           var l = lineg.selectAll('.lines')
               .data(traces, function(d) {return d.id;});
@@ -774,10 +803,10 @@ app.directive('d3Ricker', function() {
           
         case 'P':
           console.log('P')
-          ffidIdx = Math.max(0, --ffidIdx);
-          traces = tracesByFFID[ffidIdx].values;
+          ensIdx = Math.max(0, --ensIdx);
+          traces = tracesByEnsemble[ensIdx].values;
           ntrcs = traces.length;
-          console.log(traces, ntrcs, ffidIdx);
+          console.log(traces, ntrcs, ensIdx);
 
           l = lineg.selectAll('.lines')
             .data(traces, function(d) {return d.id;});
@@ -1120,4 +1149,4 @@ app.directive('d3Ricker', function() {
       setpicks: '&'
     }
   }
-});
+}]);
