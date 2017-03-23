@@ -73,10 +73,13 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
     server.kill('SIGTERM');
   })
 
+  self.wsIsOpen = false;
   function startws() {
     ws = new WebSocket(wsURL);
     ws.onopen = function() {
+      self.wsIsOpen = true;
       console.log('ws opened');
+      $scope.$apply();
     };
     ws.onerror = function() {
       console.log('ws err');

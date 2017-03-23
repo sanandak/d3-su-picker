@@ -14,10 +14,14 @@
       <input style="display:none" type="file" id="savefile" nwsaveas></input>
       <input style="display:none" type="file" id="openfile"></input>
 
+      <div ng-hide="mainctrl.wsIsOpen==true">
+	Wait for suServer to start...
+      </div>
+
       <div ng-hide="mainctrl.filename == null">
         Current file: {{mainctrl.filename}}
       </div>
-      <div ng-show="mainctrl.filename == null">
+      <div ng-show="mainctrl.filename == null && mainctrl.wsIsOpen == true">
 	Use &#8984;O to open an SU file...
       </div>
 
