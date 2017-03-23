@@ -10,6 +10,7 @@ console.log('after initmenu');
 
 var sprintf = require('sprintf-js').sprintf;
 var cryp = require('crypto');
+const cexec = require('child_process').execFile;
 var readSU = require('segy-js').readSU;
 var fileio = require('./app/fileio.js')
 
@@ -34,14 +35,6 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
   self.filename = null;
   self.msg = 'PSQL';
 
-  self.progressMax = 0;
-  self.progressVal = 0;
-
-  console.log(ReadData.get());
-  ReadData.set('hi tehre');
-  console.log(ReadData.get());
-
-
   var win = global.gui.Window.get();
 
   // initMenu added 'File', and 'File->Open and Save'
@@ -61,6 +54,46 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
   //  console.log(filemenu, openmenu, savemenu)
   var alldata;
   var pickedTraces;
+  var wsURL = 'ws://localhost:9191/websocket';
+  var ws;
+
+  var server = cexec('./suServer.py')
+  
+  server.stdout.on('data', (data) => {
+    console.log('suserv stdout', data);
+  })
+  server.stderr.on('data', (data) => {
+    console.log('suserv stderr', data);
+  })
+
+  process.on('SIGTERM', function() {
+    server.kill('SIGTERM');
+  })
+  process.on('SIGINT', function() {
+    server.kill('SIGTERM');
+  })
+
+  function startws() {
+    ws = new WebSocket(wsURL);
+    ws.onopen = function() {
+      console.log('ws opened');
+    };
+    ws.onerror = function() {
+      console.log('ws err');
+    }
+//    ws.onclose = function() {
+//      console.log('ws closed');
+      // try again?
+//      checkws();
+//    }
+  }
+  function checkws() {
+    //console.log('checking ws state');
+    if(!ws || ws.readyState === WebSocket.CLOSED)
+      startws();
+  }
+  setInterval(checkws, 5000);
+
 
   // when the user chooses "open", this function is called
   openmenu.on('click', function() {
@@ -74,6 +107,15 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
       var flist = this.files;// from Files API
       self.filename = filepath;
       console.log(this, this.files, filepath);
+
+      ws.send('{"cmd":"getSegy", "filename": "' + filepath + '"}');
+      ws.onmessage = function(evt) {
+        var msg = JSON.parse(evt.data);
+        var segy = JSON.parse(msg['segy'])
+        console.log(msg['cmd'])
+        self.data=segy;
+        $scope.$apply();
+      };
 
       /*
       var reader = new FileReader();
@@ -94,11 +136,13 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
 
       reader.readAsArrayBuffer(flist[0]);
       */
-      
+
+      /*
       alldata = readSU(filepath);
       console.log(alldata);
       self.data = alldata;
       $scope.$apply();
+      */
     })
     chooser.click();
   });
@@ -121,6 +165,9 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
   self.setpicks = function(picks) {
     pickedTraces = picks;
   }
+
+  
+  
 }]);
 
 /*
@@ -129,9 +176,9 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
  */
 app.directive('d3Ricker', ['ReadData', function(ReadData) {
   function link(scope, element, attr) {
-    console.log('dir', ReadData.get());
-    ReadData.set('hi directive');
-    console.log('dir', ReadData.get());
+//    console.log('dir', ReadData.get());
+//    ReadData.set('hi directive');
+//    console.log('dir', ReadData.get());
 
     var el = element[0];
     
@@ -146,6 +193,7 @@ app.directive('d3Ricker', ['ReadData', function(ReadData) {
     /* init - label traces with unique id and sort */
     var init = function () {
       // label traces with unique id
+      //console.log(data.traces)
       data.traces.forEach(function(d) {
         d.id = cryp.randomBytes(5).toString('hex');
       });
@@ -184,13 +232,14 @@ app.directive('d3Ricker', ['ReadData', function(ReadData) {
     }
 
     data = scope.data;
+    //console.log(data.traces);
     init();
 
-    scope.$watch('data', function(newval, oldval, scope) {
-      console.log('data changed', newval, oldval);
+//    scope.$watch('data', function(newval, oldval, scope) {
+//      console.log('data changed', newval, oldval);
 //      data = scope.data;
 //      init();
-    }, true);
+//    }, true);
 
     //console.log('ffid = ', ffids, ffididx);
     //console.log('traces = ', traces, 'dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
