@@ -2,11 +2,16 @@
 
 A d3-based SU (Seismic Unix) viewer and picker.  The viewer is built
 on `nwjs`, a technology that let's one run web-based applications on
-the desktop, including opening and saving local files.  The display is
+the desktop.  The display is
 through `d3`, a javascript library for visualization.
 
 This tool allows one to _pick_ the times of events of interest in a
 seismic file and save the picks to a text file.
+
+## suServer - a python script to provide data
+
+Javascript does not have a segy reader, thus we use python to read su
+and segy files and serve them to the picker through `WebSockets`.
 
 ## Installation
 
@@ -24,6 +29,12 @@ Install `bower` (another package manager(?))
     bower install
     npm install
 
+Install python 3.4 or higher (preferably through anaconda (http://continuum.io))
+
+    conda config --add channels conda-forge
+    conda install obspy
+    conda install websockets
+
 ## Requirements
 
   These are installed by `npm` and `bower`
@@ -31,6 +42,11 @@ Install `bower` (another package manager(?))
   - segy-js
   - sprintf-js
   - angularjs
+
+  These are installed by `conda` (`pip` may work - untested)
+  - obspy
+  - websockets
+  - numpy and scipy are installed with obspy
   
 ## Usage
 
@@ -73,7 +89,8 @@ Each member of `samps` is an object with `t` and `v` fields: `{t: 0, v: .01}`
 
 ## TODO
 
-  Read SEG-Y files.
+  - Read SEG-Y files.
+  - Read pick files.
 
 
   
