@@ -7,24 +7,28 @@
     <script src="app/app.js" charset="utf-8"></script>
 
     <link href="app/chart.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
   </head>
   <body>
     <div ng-controller="MainCtrl as mainctrl">
-      <input style="display:none" type="file" id="savefile" nwsaveas></input>
-      <input style="display:none" type="file" id="openfile"></input>
+      <div class="well">
+        <h1>SU Picker</h1>
+        
+        <input style="display:none" type="file" id="openfile" accept=".su,.segy,.sgy"></input>
+        <input style="display:none" type="file" id="savefile" accept=".pks,.json,.txt" nwsaveas></input>
 
-      <div ng-hide="mainctrl.wsIsOpen==true">
-	Wait for suServer to start...
-      </div>
+        <button class="btn btn-primary btn-lg" ng-click="mainctrl.open()">Open SU File</button>
+        <button class="btn btn-primary btn-lg" ng-click="mainctrl.save()">Save Picks...</button>
 
-      <div ng-hide="mainctrl.filename == null">
-        Current file: {{mainctrl.filename}}
-      </div>
-      <div ng-show="mainctrl.filename == null && mainctrl.wsIsOpen == true">
-	Use &#8984;O to open an SU file...
-      </div>
+        <div class="alert alert-warning" ng-hide="mainctrl.wsIsOpen==true">
+	  Wait for suServer to start...
+        </div>
 
+        <div ng-hide="mainctrl.filename == null">
+          Current file: {{mainctrl.filename}}
+        </div>
+      </div>
       <!--
       <div>
         <progress value={{mainctrl.progressVal}} max={{mainctrl.progressMax}}></progress>
@@ -33,7 +37,7 @@
 
       -->
       
-      <div>
+      <div class="well">
 	<d3-ricker ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
       </div>
 

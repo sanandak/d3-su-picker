@@ -1,44 +1,29 @@
 var fs = require('fs');
 //var gui = require('nw.gui')
-global.window = window;
-global.gui = require('nw.gui');
+//global.window = window;
+//global.gui = require('nw.gui');
 
-var menu = require('./app/menu.js');
-menu.initMenu();
+//var menu = require('./app/menu.js');
+//menu.initMenu();
 
-console.log('after initmenu');
+//console.log('after initmenu');
 
 var sprintf = require('sprintf-js').sprintf;
 var cryp = require('crypto');
 const cexec = require('child_process').execFile;
-var readSU = require('segy-js').readSU;
-var fileio = require('./app/fileio.js')
 
 var app = angular.module('psqlApp', []);
 
-app.factory('ReadData', [function() {
-  var filename = null;
-  return {
-    set: function(d) {
-      filename = d;
-    },
-    get: function() {
-      return filename;
-    },
-  };
-}]);
-
-
-app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
+app.controller('MainCtrl', ['$scope', function($scope) {
 
   self = this;
   self.filename = null;
-  self.msg = 'PSQL';
 
-  var win = global.gui.Window.get();
+  //  var win = global.gui.Window.get();
 
   // initMenu added 'File', and 'File->Open and Save'
   // search for them here.
+  /*
   var filemenu = win.menu.items
       .find(function(d) {
 	return d.label == 'File';
@@ -52,6 +37,7 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
 	return d.label == 'Save';
       }) //, 'Save');
   //  console.log(filemenu, openmenu, savemenu)
+  */
   var alldata;
   var pickedTraces;
   var wsURL = 'ws://localhost:9191/websocket';
@@ -99,9 +85,10 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
 
 
   // when the user chooses "open", this function is called
-  openmenu.on('click', function() {
+  self.open = function() {
     // this function will "click" the (invisible) openfile
     // button on the page, which will read the data
+    //    console.log("buton clicked");
     var chooser = document.getElementById('openfile');
     //console.log(chooser);
 
@@ -120,56 +107,31 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
         $scope.$apply();
       };
 
-      /*
-      var reader = new FileReader();
-      reader.onerror = function(event) {
-        console.log('error reading', event.target.error);
-      }
-      reader.onloadend = function(event) {
-        var contents = event.target.result;
-        console.log('file read', contents.byteLength);
-        //self.progressVal = 81000;
-      };
-      reader.onprogress = function(event) {
-        //console.log('progress', event.total, event.loaded);
-        self.progressMax = event.total;
-        self.progressVal = event.loaded;
-        $scope.$apply();
-      };
-
-      reader.readAsArrayBuffer(flist[0]);
-      */
-
-      /*
-      alldata = readSU(filepath);
-      console.log(alldata);
-      self.data = alldata;
-      $scope.$apply();
-      */
     })
     chooser.click();
-  });
+    //  });
+  }
   
   // when the user chooses "save", this function is called
-  savemenu.on('click', function() {
-    console.log('savemenu click');
+   self.save = function() {
+    //console.log('savemenu click');
     var chooser = document.getElementById('savefile');
-    console.log(chooser);
+    //console.log(chooser);
     chooser.addEventListener('change', function() {
       var filepath = this.value;
       console.log(filepath);
-      fs.writeFileSync(filepath, JSON.stringify(pickedTraces));
+      fs.appendFileSync(filepath, JSON.stringify(
+	{'sufile':self.filename, 'picktime':new Date(), 'picks': pickedTraces}))
+      //      fs.writeFileSync(filepath, JSON.stringify(pickedTraces));
     })
     chooser.click();
-  });
+   };
   
   // when the directive updates picks, this function is called
   // to update the local variable pickedTraces...
   self.setpicks = function(picks) {
     pickedTraces = picks;
   }
-
-  
   
 }]);
 
@@ -177,14 +139,9 @@ app.controller('MainCtrl', ['$scope', 'ReadData', function($scope, ReadData) {
  * d3-ricker will generate 2 windows: the main and zoom windows
  * and allow picking
  */
-app.directive('d3Ricker', ['ReadData', function(ReadData) {
+app.directive('d3Ricker', [function() {
   function link(scope, element, attr) {
-//    console.log('dir', ReadData.get());
-//    ReadData.set('hi directive');
-//    console.log('dir', ReadData.get());
 
-    var el = element[0];
-    
     var width = 900,
 	height = 600;
     
@@ -768,20 +725,6 @@ app.directive('d3Ricker', ['ReadData', function(ReadData) {
       
     };
 
-    /* function called to save data to disk */
-    var savedata = function() {
-      var fName = 'test.dat';
-      var dirPath = '/Users/sak/Desktop/Picks';
-      var fileName = dirPath + '/' + fName;
-      try {
-        fs.statSync(dirPath);
-      } catch (e) {
-        fs.mkdirSync(dirPath);
-      }
-
-      fs.writeFileSync(fileName, JSON.stringify(picks, null, 2));
-    };
-
     /* handle key interactions */
 
     d3.select('body')
@@ -995,9 +938,11 @@ app.directive('d3Ricker', ['ReadData', function(ReadData) {
         case 'p':
           var r = vScale2.range();
           var trchtFoc = (r[1] - r[0]) / ntrcsFoc;
-
+          var i = bisectT(traces[cursTrc].samps, cursT);
+	  
           traces[cursTrc].pickT = cursT;
-          traces[cursTrc].pickSamp = i;
+          traces[cursTrc].pickIdx = i;
+	  traces[cursTrc].pickVal = traces[cursTrc].samps[i].v
 
           // am I re-picking?  Search for cursTrc id in pickedTraces
           var idx = pickedTraces.map(function(d) {return d.id;})
@@ -1169,28 +1114,29 @@ app.directive('d3Ricker', ['ReadData', function(ReadData) {
       });
 
 
-    // focus.append('rect')
-    //     .attr('class', 'overlay')
-    //     .attr('width', w2)
-    //     .attr('height', h2)
-    //     .on('mouseover', function() {cursor.style('display', null);})
-    //     .on('mouseout', function() {cursor.style('display', 'none');})
-    //     .on('mousemove', function() {
-    //  var m = d3.mouse(this);
-    //  var mT = xScale2.invert(m[0]);
-    //  var mY = yScale2.invert(m[1]);
+    focus.append('rect')
+        .attr('class', 'overlay')
+        .attr('width', w2)
+        .attr('height', h2)
+//        .on('mouseover', function() {cursor.style('display', null);})
+//        .on('mouseout', function() {cursor.style('display', 'none');})
+        .on('click', function() {
+	  var m = d3.mouse(this);
+	  var mT = tScale2.invert(m[1]);
+	  var mY = vScale2.invert(m[0]);
 
-    //  var x = m[0];
-    //  var dom = yScale2.domain(), dl = dom[0] - dom[1];
-    //  var trcnum = Math.floor(ntrcs * (mY - dom[1]) / dl);
-    //  if(trcnum < 0) trcnum = 0;
-    //  if(trcnum > ntrcs-1) trcnum = ntrcs - 1;
-    //  var i = bisectT(mydata[trcnum], mT);
-    //  var yofs = (h2/ntrcs * trcnum);
-
-    //  console.log('mousemove', m, mY, dl, dom[0], dom[1], trcnum, i,yofs);
-    //  //scope.mouseTime({d:mT}); // pass mouse time to controller
-    //     });
+	  var x = m[0];
+	  var dom = vScale2.domain(),
+              dl = dom[1] - dom[0];
+	  var trcnum = Math.floor(ntrcs * (mY - dom[0]) / dl);
+	  if(trcnum < 0) trcnum = 0;
+	  if(trcnum > ntrcs-1) trcnum = ntrcs - 1;
+	  var i = bisectT(traces[trcnum].samps, mT);
+	  var xofs = (w2/ntrcs * trcnum);
+	  
+	  console.log('mousemove', m, mY, mT, trcnum, i);
+	  //scope.mouseTime({d:mT}); // pass mouse time to controller
+        });
   };
 
   return {
