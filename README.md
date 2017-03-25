@@ -39,7 +39,6 @@ Install python 3.4 or higher (preferably through anaconda (http://continuum.io))
 
   These are installed by `npm` and `bower`
   - d3js v4
-  - segy-js
   - sprintf-js
   - angularjs
 
@@ -52,8 +51,7 @@ Install python 3.4 or higher (preferably through anaconda (http://continuum.io))
 
     /path/to/nwjs /path/to/d3-su-picker
 
-  Cmd-O to open an SU file
-  Cmd-S to save picks
+  Buttons to open an SU file and to save picks.
 
 The viewer displays the first _ensemble_ (by default, the first `ffid` - field file id). 
 
@@ -68,8 +66,16 @@ Keyboard commands:
 - `p` picks the time of the cursor
 - `d` deletes the pick
 
-The saved picks file is a JSON file that is an array of traces.  Each array member is a _trace_ object with the following fields:
-- `tracl`
+The saved picks file is a JSON file that is an array of traces.
+- sufile: file name of the picked data
+- picktime: when the picking was done
+- picks: an array of traces
+
+Each array member is a _trace_ object with the following fields:
+- `pickT`- the time of the pick
+- `pickIdx` - the sample number
+- 'pickVal` - the value
+- `tracl` - see SU docs for the definition of these fields
 - `tracr`
 - `ffid` 
 - `tracf`
@@ -83,7 +89,7 @@ The saved picks file is a JSON file that is an array of traces.  Each array memb
 - `gy` 
 - `ns` 
 - `dt` 
-- `samps` (an array)
+- `samps` (an array) - the full seismic trace
 
 Each member of `samps` is an object with `t` and `v` fields: `{t: 0, v: .01}`
 

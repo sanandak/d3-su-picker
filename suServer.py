@@ -32,6 +32,7 @@ def getTrc(t):
     trc = {"tracl": t.header.trace_sequence_number_within_line,
            "tracr": t.header.trace_sequence_number_within_segy_file,
            "ffid": t.header.original_field_record_number,
+           "offset": t.header.distance_from_center_of_the_source_point_to_the_center_of_the_receiver_group,
            "samps": samps}
     return trc
 

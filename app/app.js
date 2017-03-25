@@ -43,6 +43,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   var wsURL = 'ws://localhost:9191/websocket';
   var ws;
 
+  /* TESTINT - start server and leave it running...
   var server = cexec('./suServer.py')
   
   server.stdout.on('data', (data) => {
@@ -58,6 +59,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   process.on('SIGINT', function() {
     server.kill('SIGTERM');
   })
+  */
 
   self.wsIsOpen = false;
   function startws() {
@@ -95,8 +97,11 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     chooser.addEventListener('change', function() {
       var filepath = this.value;
       var flist = this.files;// from Files API
+
+      if (self.filename == filepath) {return;}
+      
       self.filename = filepath;
-      console.log(this, this.files, filepath);
+      console.log(this, this.value, this.oldvalue, this.files, filepath);
 
       ws.send('{"cmd":"getSegy", "filename": "' + filepath + '"}');
       ws.onmessage = function(evt) {
@@ -149,6 +154,7 @@ app.directive('d3Ricker', [function() {
     var dt,traces, currEns, ensIdx, pickedTraces;
     var firstTrc, lastTrc, ntrcs, npts, traceLen, cursT, cursTrc;
     var tracesByEnsemble;
+    var displayScale = 1;
 
     /* init - label traces with unique id and sort */
     var init = function () {
@@ -191,8 +197,18 @@ app.directive('d3Ricker', [function() {
       cursTrc = Math.floor((lastTrc - firstTrc) / 2);
     }
 
-    data = scope.data;
+    scope.$watch('data', function() {
+      console.log(data);
+      data = scope.data;
+      init();
+      updateFocusLines();
+      updateFocusAreas();
+      updateCursor();
+      updatePicks();
+    });
+    
     //console.log(data.traces);
+    data = scope.data;
     init();
 
 //    scope.$watch('data', function(newval, oldval, scope) {
@@ -251,6 +267,15 @@ app.directive('d3Ricker', [function() {
 	.domain([0, (npts - 1) * dt])
 	.range([0, h]);
     var tAxis = d3.axisLeft(tScale);
+    // label
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('y', 0-margins.left)
+      .attr('x', 0-(h/2))
+      .attr('dy', '1em')
+      .style('text-anchor', 'middle')
+      .text('Time (s)')
+
 
     var vScale = d3.scaleLinear()
 	.domain([-1, 1])
@@ -258,7 +283,8 @@ app.directive('d3Ricker', [function() {
     var vAxis = d3.axisTop(vScale);
 
     var oScale = d3.scaleLinear()
-        .domain([0,2450])
+        .domain([d3.min(traces,function(d){return d.offset;}),
+		 d3.max(traces,function(d){return d.offset;})])
         .range([0,w])
     
     var oAxis = d3.axisTop(oScale);
@@ -376,6 +402,13 @@ app.directive('d3Ricker', [function() {
     var vScale2 = d3.scaleLinear().range([0, w2]);
     var tScale2 = d3.scaleLinear().range([0, h2]);
 
+    var oScale2 = d3.scaleLinear()
+        .domain([d3.min(traces,function(d){return d.offset;}),
+		 d3.max(traces,function(d){return d.offset;})])
+        .range([0,w2])
+    
+    var oAxis2 = d3.axisTop(oScale2);
+
     tScale2.domain([0, (npts - 1) * dt]);
     vScale2.domain([-1, 1]);
 
@@ -395,14 +428,14 @@ app.directive('d3Ricker', [function() {
 
     var focusLine = d3.line()
     //        .curve(d3.curveMonotoneY)
-	.x(function(d, i) { return vScale2(d.v);})
+	.x(function(d, i) { return vScale2(displayScale * d.v);})
 	.y(function(d, i) { return tScale2(d.t);})
 
     var focusArea = d3.area()
 	.y(function(d, i) {return tScale2(d.t);})
 	.x0(vScale2(0))
     //        .curve(d3.curveMonotoneY)
-	.x1(function(d, i) {return vScale2(d.v);});
+	.x1(function(d, i) {return vScale2(displayScale * d.v);});
 
     /* add zoom box */
 
@@ -460,30 +493,6 @@ app.directive('d3Ricker', [function() {
         return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
       })
 
-    var flineg = clipping.append('g')
-	.attr('class', 'flineg')
-    flineg
-      .selectAll('.fline')
-      .data(traces, function(d, i) {
-        return d.id;
-      })
-      .enter()
-      .append('path')
-      .attr('class', 'fline')
-      .attr('d', function(d) {
-        return focusLine(d.samps);
-      })
-      .attr('transform', function(d, i) {
-        xofsFoc = (w2 / ntrcsFoc * i);
-        return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
-      })
-
-    focus.append('g')
-      .attr('class', 'axis x-axis')
-      .call(vAxis2)
-    focus.append('g')
-      .attr('class', 'axis y-axis')
-      .call(tAxis2)
 
     /*
       var tt = d3.select(element[0])
@@ -509,6 +518,7 @@ app.directive('d3Ricker', [function() {
       var ttpts = tt.append('g')
       .attr('class', 'ttpts');
     */
+
     var updateFocusLines = function() {
       ntrcsFoc = lastTrc - firstTrc + 1;
       console.log('update lines', lastTrc, firstTrc, ntrcsFoc);
@@ -522,6 +532,9 @@ app.directive('d3Ricker', [function() {
       //      console.log(l);
       l
         .transition()
+        .attr('d', function(d) {
+          return focusLine(d.samps);
+        })
         .attr('transform', function(d, i) {
           xofsFoc = (w2 / ntrcsFoc * i);
           //          console.log('update line',i, xofsFoc);
@@ -543,6 +556,35 @@ app.directive('d3Ricker', [function() {
         })
     };
 
+    var flineg = clipping.append('g')
+	.attr('class', 'flineg')
+    updateFocusLines();
+    /*
+    flineg
+      .selectAll('.fline')
+      .data(traces, function(d, i) {
+        return d.id;
+      })
+      .enter()
+      .append('path')
+      .attr('class', 'fline')
+      .attr('d', function(d) {
+        return focusLine(d.samps);
+      })
+      .attr('transform', function(d, i) {
+        xofsFoc = (w2 / ntrcsFoc * i);
+        return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
+      })
+    */
+    focus.append('g')
+      .attr('class', 'axis x-axis')
+      .call(oAxis2.ticks(5))
+//      .call(vAxis2)
+    focus.append('g')
+      .attr('class', 'axis y-axis')
+      .call(tAxis2)
+
+
     var updateFocusAreas = function() {
       ntrcsFoc = lastTrc - firstTrc + 1;
       var l = d3.selectAll('.fareag')
@@ -552,8 +594,11 @@ app.directive('d3Ricker', [function() {
           })
       l
         .attr('fill-opacity', function(d,i) {
-          console.log('fill', i, cursTrc-firstTrc);
+//          console.log('fill', i, cursTrc-firstTrc);
           return ((i===(cursTrc-firstTrc)) ? 1 : .3);
+        })
+        .attr('d', function(d) {
+          return focusArea(d.samps);
         })
         .attr('transform', function(d, i) {
           xofsFoc = (w2 / ntrcsFoc * i);
@@ -571,7 +616,7 @@ app.directive('d3Ricker', [function() {
         .attr('transform', function(d, i) {
           xofsFoc = (w2 / ntrcsFoc * i);
           //          console.log('enter area',i, xofsFoc);
-          return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
+          return 'translate(' + xofsFoc + ',0) scale(' +  1 / ntrcsFoc + ',1)';
         })
       l.exit().remove();
     };
@@ -584,7 +629,7 @@ app.directive('d3Ricker', [function() {
       console.log('updateCursor', xofsFoc, sampNo);
       cursor.select('#cursor')
         .attr('cy', tScale2(traces[cursTrc].samps[sampNo].t))
-        .attr('cx', vScale2(traces[cursTrc].samps[sampNo].v) / ntrcsFoc)
+        .attr('cx', vScale2(displayScale * traces[cursTrc].samps[sampNo].v) / ntrcsFoc)
         .attr('transform', 'translate(' + xofsFoc + ',0)')
 
       
@@ -658,7 +703,7 @@ app.directive('d3Ricker', [function() {
       .attr('class', 'cursor')
       .attr('r', 6)
       .attr('cy', tScale2(traces[cursTrc].samps[sampNo].t))
-      .attr('cx', vScale2(traces[cursTrc].samps[sampNo].v) / ntrcsFoc)
+      .attr('cx', vScale2(displayScale * traces[cursTrc].samps[sampNo].v) / ntrcsFoc)
       .attr('transform', 'translate(' + xofsFoc + ',0)')
 
     var cursorText = sprintf('ensemble %s trace: %d time: %.3f', currEns, cursTrc, cursT);
@@ -731,23 +776,22 @@ app.directive('d3Ricker', [function() {
       .on('keydown', function(d) {
         // scale traces up and down
         if (d3.event.key === 'y' || d3.event.key === 'Y') {
-          var vdom = vScale2.domain();
-          console.log(d3.event, vdom);
           var scl = d3.event.shiftKey ? .5 : 2;
-          vdom = vdom.map(function(d) {
-            return d * scl;
-          })
-          vScale2.domain(vdom);
-          focus.select('.x-axis')
-            .call(vAxis2)
-          focus.selectAll('.fline')
-            .attr('d', function(d) {
-              return focusLine(d.samps);
-            })
-          focus.selectAll('.ffills')
-            .attr('d', function(d) {
-              return focusArea(d.samps);
-            })
+
+	  displayScale *= scl;
+	  updateFocusLines();
+	  updateFocusAreas();
+	  
+//          focus.select('.x-axis')
+//            .call(vAxis2)
+//          focus.selectAll('.fline')
+//            .attr('d', function(d) {
+//              return focusLine(d.samps);
+//            })
+//          focus.selectAll('.ffills')
+//            .attr('d', function(d) {
+//              return focusArea(d.samps);
+//            })
         }
 
 
@@ -761,35 +805,6 @@ app.directive('d3Ricker', [function() {
           ntrcs = traces.length;
           console.log(traces, ntrcs, ensIdx);
 
-          var l = lineg.selectAll('.lines')
-              .data(traces, function(d) {return d.id;});
-          l.exit().remove();
-          l.enter()
-            .append('path')
-            .attr('class', 'lines')
-            .attr('d', function(d) {
-              return line(d.samps);
-            })
-            .attr('transform', function(d, i) {
-              xofs = (w / ntrcs * i);
-              return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
-            });
-
-          l = areag.selectAll('.fills')
-            .data(traces, function(d) {return d.id;})
-          l.exit().remove();
-          l.enter()
-            .append('path')
-            .attr('class', 'fills')
-            .attr('fill', 'url(#area-gradient)')
-            .attr('d', function(d) {
-              return area(d.samps);
-            })
-            .attr('transform', function(d, i) {
-              xofs = (w / ntrcs * i);
-              return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
-            });
-
           updateFocusLines();
           updateFocusAreas();
 	  updateCursor();
@@ -802,35 +817,6 @@ app.directive('d3Ricker', [function() {
           traces = tracesByEnsemble[ensIdx].values;
           ntrcs = traces.length;
           console.log(traces, ntrcs, ensIdx);
-
-          l = lineg.selectAll('.lines')
-            .data(traces, function(d) {return d.id;});
-          l.exit().remove();
-          l.enter()
-            .append('path')
-            .attr('class', 'lines')
-            .attr('d', function(d) {
-              return line(d.samps);
-            })
-            .attr('transform', function(d, i) {
-              xofs = (w / ntrcs * i);
-              return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
-            });
-
-          l = areag.selectAll('.fills')
-            .data(traces, function(d) {return d.id;})
-          l.exit().remove();
-          l.enter()
-            .append('path')
-            .attr('class', 'fills')
-            .attr('fill', 'url(#area-gradient)')
-            .attr('d', function(d) {
-              return area(d.samps);
-            })
-            .attr('transform', function(d, i) {
-              xofs = (w / ntrcs * i);
-              return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
-            });
 
           updateFocusLines();
           updateFocusAreas();
@@ -850,7 +836,8 @@ app.directive('d3Ricker', [function() {
           cursT = cursT + incr * dt;
           cursT = Math.floor(cursT/dt) * dt; // make cursT a multiple of dt always
           
-          console.log('td0',cursT, td, tdlen);
+          //console.log('td0',cursT, td, tdlen);
+	  // moved off screen...
           if (cursT <= td[0] || cursT >= td[1]) {
             if (cursT <= td[0]) {
               td[0] -= tdlen/4;
@@ -863,7 +850,7 @@ app.directive('d3Ricker', [function() {
             }
             
             
-            console.log('td1',td);
+            //console.log('td1',td);
             
             tScale2.domain(td);
             focus.select('.y-axis')
@@ -885,7 +872,6 @@ app.directive('d3Ricker', [function() {
               .attr('d', function(d) {
                 return focusArea(d.samps);
               })
-
             updatePicks();
           }
           updateCursor();
@@ -920,7 +906,8 @@ app.directive('d3Ricker', [function() {
           // remove the current pick
         case 'd':
           delete traces[cursTrc].pickT;
-          delete traces[cursTrc].pickSamp;
+          delete traces[cursTrc].pickIdx;
+          delete traces[cursTrc].pickVal;
           // search for this trc in the pickedtraces
           var idx = pickedTraces.map(function(d) {return d.id;})
               .indexOf(traces[cursTrc].id);
@@ -984,8 +971,8 @@ app.directive('d3Ricker', [function() {
               return 'translate(' + xofsFoc + ',0)';
             })
             .attr('stroke', 'none')
-            .attr('fill-opacity', 0.5)
-            .attr('fill', 'black');
+//            .attr('fill-opacity', 0.5)
+            .attr('fill', 'yellow-green');
           /*
             ttpts
             .selectAll('.ttpts')
@@ -1039,7 +1026,7 @@ app.directive('d3Ricker', [function() {
           
           updateCursor();
 
-          // only the y coordinate changes when 
+          // only the y coordinate changes when zoom in time
           pickg
             .selectAll('.picks')
             .attr('y', function(d) {
@@ -1054,6 +1041,7 @@ app.directive('d3Ricker', [function() {
         // 'T' -  zoom out to all traces
         if (d3.event.key === 't') {
           ntrcsFoc = lastTrc - firstTrc + 1;
+	  if(ntrcsFoc <= 8) {return;}
           firstTrc = Math.max(cursTrc - Math.floor(ntrcsFoc/4), 0);
           lastTrc = Math.min(cursTrc + Math.floor(ntrcsFoc/4), ntrcs);
           ntrcsFoc = lastTrc - firstTrc + 1;
@@ -1061,9 +1049,15 @@ app.directive('d3Ricker', [function() {
           updateFocusAreas();
 
           updateCursor();
-
-          r = vScale2.range()
-          trchtFoc = Math.abs(r[0] - r[1]) / ntrcsFoc;
+	  r = oScale2.range()
+	  //          trchtFoc = Math.abs(r[0] - r[1]) / ntrcsFoc;
+	  trchtFoc = w2 / ntrcsFoc;
+	  
+	  oScale2.domain([traces[firstTrc].offset, traces[lastTrc].offset])
+	  oScale2.range([0 + trchtFoc/2, w2 - trchtFoc/2])
+          focus.select('.x-axis')
+            .call(oAxis2.ticks(5))
+//          r = vScale2.range()
 
           console.log('picks', picks, r, trchtFoc)
           pickg
@@ -1091,8 +1085,16 @@ app.directive('d3Ricker', [function() {
 
           updateCursor();
 
-          r = vScale2.range()
-          trchtFoc = Math.abs(r[0] - r[1]) / ntrcsFoc;
+          r = oScale2.range()
+//          trchtFoc = Math.abs(r[1] - r[0]) / ntrcsFoc;
+	  trchtFoc = w2 / ntrcsFoc;
+	  
+	  oScale2.domain([traces[firstTrc].offset, traces[lastTrc].offset])
+	  oScale2.range([0 + trchtFoc/2, w2 - trchtFoc/2])
+//	  oScale2.range([r[0] + trchtFoc/2, r[1] - trchtFoc/2])
+          focus.select('.x-axis')
+            .call(oAxis2.ticks(5))
+
           pickg
             .selectAll('.picks')
           //.data(picks)
@@ -1113,17 +1115,44 @@ app.directive('d3Ricker', [function() {
         }
       });
 
+    var v = 1500;
+    var anchorT, anchorOfs;
+    var nmo = focus.append('g')
+        .append('path')
+	.style('display', 'none')
+        .attr('class', 'nmo')
+        .attr('id', 'nmoLine')
+//    console.log('nmo', nmo)
 
+    var nmoLine = d3.line()
+        .x(function(d) { return oScale2(d[0]);})
+        .y(function(d) { return tScale2(d[1]);})
+
+
+    var showNMO = false;
     focus.append('rect')
         .attr('class', 'overlay')
         .attr('width', w2)
         .attr('height', h2)
-//        .on('mouseover', function() {cursor.style('display', null);})
-//        .on('mouseout', function() {cursor.style('display', 'none');})
-        .on('click', function() {
+//      .on('mouseover', function() {nmo.style('display', null);})
+      .on('mouseout', function() {
+        nmo.style('display', 'none');
+        showNMO = false;
+      })
+      .on('click', function() {
+	var m = d3.mouse(this);
+	anchorT = tScale2.invert(m[1]);
+	anchorOfs = oScale2.invert(m[0]);
+        console.log(anchorT, anchorOfs);
+        nmo
+          .style('display', null)
+        showNMO = true;
+        
+      })        
+        .on('mousemove', function() {
 	  var m = d3.mouse(this);
 	  var mT = tScale2.invert(m[1]);
-	  var mY = vScale2.invert(m[0]);
+	  var mY = oScale2.invert(m[0]);
 
 	  var x = m[0];
 	  var dom = vScale2.domain(),
@@ -1134,8 +1163,30 @@ app.directive('d3Ricker', [function() {
 	  var i = bisectT(traces[trcnum].samps, mT);
 	  var xofs = (w2/ntrcs * trcnum);
 	  
-	  console.log('mousemove', m, mY, mT, trcnum, i);
-	  //scope.mouseTime({d:mT}); // pass mouse time to controller
+//	  console.log('mousemove', m, mY, mT, trcnum, i);
+
+          var vnmo2 = (mY*mY - anchorOfs*anchorOfs)/(mT*mT - anchorT*anchorT);
+          if(vnmo2 <= 0 || showNMO === false) {
+            nmo
+              .style('display', 'none')
+          } else {
+            var vnmo = Math.sqrt(vnmo2);
+            var t0 = Math.sqrt(anchorT*anchorT - anchorOfs * anchorOfs/(vnmo*vnmo));
+          
+//            console.log(vnmo, t0);
+            v = vnmo;
+
+            var nmopts = traces.map(function(d) {return [d.offset, Math.sqrt(t0*t0 + d.offset * d.offset / (v * v))];});
+          //console.log(nmopts);
+
+            focus
+              .select('#nmoLine')
+              .datum(nmopts)
+              .attr('d', nmoLine);
+            nmo
+              .style('display', null)
+	    //scope.mouseTime({d:mT}); // pass mouse time to controller
+          }
         });
   };
 
