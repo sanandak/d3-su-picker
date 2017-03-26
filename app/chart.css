@@ -59,9 +59,19 @@ axis path,
     stroke-width: 0.5px;
     fill: none;
 }
+.psd {
+    stroke: black;
+    stroke-width: 1px;
+    fill: none;
+}
+
 
 .zoom {
   cursor: move;
   fill: none;
   pointer-events: all;
+}
+
+.picks {
+    pointer-events: all;
 }

@@ -18,17 +18,71 @@
         <input style="display:none" type="file" id="openfile" accept=".su,.segy,.sgy"></input>
         <input style="display:none" type="file" id="savefile" accept=".pks,.json,.txt" nwsaveas></input>
 
-        <button class="btn btn-primary btn-lg" ng-click="mainctrl.open()">Open SU File</button>
-        <button class="btn btn-primary btn-lg" ng-click="mainctrl.save()">Save Picks...</button>
+        <div class="row">
+          <div class="col-sm-4" style="float:left;">
+
+            <button class="btn btn-primary btn-lg" ng-click="mainctrl.open()" ng-disabled="!mainctrl.wsIsOpen">Open SU File</button>
+          </div>
+          <div class="col-sm-4" style="float:left;">
+            <button class="btn btn-primary btn-lg" ng-click="mainctrl.save()">Save Picks...</button>
+          </div>
+        </div>
 
         <div class="alert alert-warning" ng-hide="mainctrl.wsIsOpen==true">
 	  Wait for suServer to start...
         </div>
 
-        <div ng-hide="mainctrl.filename == null">
-          Current file: {{mainctrl.filename}}
+        <div class="row" ng-hide="mainctrl.filename == null">
+          <div class="col-sm-4" >
+            <h3>Current file: {{mainctrl.basename}}</h3>
+            <table style="width: auto;" class="table table-bordered">
+              <tr>
+                <td>Sample Interval</td>
+                <td>{{mainctrl.dt}}</td>
+              </tr>
+              <tr>
+                <td>Number FFIDs</td>
+                <td>{{mainctrl.nens}}</td>
+              </tr>
+              <tr>
+                <td>First FFID</td>
+                <td>{{mainctrl.ens0}}</td>
+              </tr>
+              <tr>
+                <td>Last FFID</td>
+                <td>{{mainctrl.ensN}}</td>
+              </tr>
+              <tr>
+                <td>Curr FFID</td>
+                <td>{{mainctrl.currEnsNum}}</td>
+              </tr>
+            </table>
+          </div>
+          <div class="col-sm-8" style="display: inline-block;">
+            <d3-psd data="mainctrl.psd"></d3-psd>
+          </div>
         </div>
-      </div>
+
+        <div ng-hide="mainctrl.filename == null">
+          <p style="font-size: 18px">
+          Filter: <input type="checkbox" ng-click="mainctrl.fcheck()" ng-model="mainctrl.checkVal" style="margin-right: 10px;margin-left: 6px; transform: scale(1.5);">
+          Flo: <input type="number" min="0" max="{{mainctrl.fhi}}" ng-change="mainctrl.fcheck()" ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px;">
+          Fhi: <input type="number" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-change="mainctrl.fcheck()" ng-model="mainctrl.fhi" style="width: 80px;">
+          </p>
+        </div>
+
+        <div class="row" ng-hide="mainctrl.filename == null">
+          <div class="col-sm-4" style="float:left;">
+            <button class="btn btn-primary btn-lg" ng-click="mainctrl.prev()">
+              Prev <span class="glyphicon glyphicon-chevron-left"></span>
+            </button>
+          </div>
+          <div class="col-sm-4">
+            <button class="btn btn-primary btn-lg" ng-click="mainctrl.next()">
+              <span class="glyphicon glyphicon-chevron-right"></span> Next
+            </button>
+          </div>
+        </div>
       <!--
       <div>
         <progress value={{mainctrl.progressVal}} max={{mainctrl.progressMax}}></progress>
@@ -41,6 +95,18 @@
 	<d3-ricker ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
       </div>
 
+      <div class="well">
+        <h3>Keys</h3>
+        <p><h4>Cursor motion</h4>
+          <kbd>h</kbd> / <kbd>l</kbd> - left/right; <kbd>j</kbd> / <kbd>k</kbd> - down/up.  Capital versions move by 10x; i.e. <kbd>H</kbd> moves by 10 traces where <kbd>h</kbd> move by 1.
+        <p><h4>Display</h4>
+          <kbd>z</kbd> / <kbd>Z</kbd> - zoom in or out in time; <kbd>t</kbd> / <kbd>T</kbd> - zoom in or out in offset; <kbd>y</kbd> / <kbd>Y</kbd> - increase trace amplitudes up or down.
+        <p><h4>Picking</h4>
+          <kbd>p</kbd> / <kbd>d</kbd> - pick/delete pick;
+        <p><h4>Mouse</h4>
+          Mouse click sets NMO anchor point; mouse position defines NMO velocity; mouse out of window to cancel NMO line.
+          
+      </div>
 
 
     </div>
