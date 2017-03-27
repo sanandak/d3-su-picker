@@ -159,8 +159,12 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     chooser.addEventListener('change', function() {
       var filepath = this.value;
       console.log(filepath);
-      fs.appendFileSync(filepath, JSON.stringify(
-	{'sufile':self.filename, 'picktime':new Date(), 'picks': pickedTraces}))
+      console.log(pickedTraces);
+      fs.writeFileSync(filepath,
+                       JSON.stringify(
+	                 {'sufile':self.filename,
+                          'picktime':new Date(),
+                          'picks': pickedTraces}));
       //      fs.writeFileSync(filepath, JSON.stringify(pickedTraces));
     })
     chooser.click();
