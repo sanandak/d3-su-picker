@@ -6,7 +6,7 @@
 import sys
 
 # FIXME - this only works with 3.5, not 3.6
-if sys.version_info < (3, 4) or sys.version_info > (3, 5):
+if sys.version_info == (3, 6):
     raise "** must use python v3.4 or 3.5"
 
 import asyncio

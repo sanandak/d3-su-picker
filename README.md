@@ -29,7 +29,7 @@ Install `bower` (another package manager(?))
     bower install
     npm install
 
-Install python 3.4 or higher (preferably through anaconda (http://continuum.io))
+Install python3 3.5 or less (preferably through anaconda (http://continuum.io))
 
     conda config --add channels conda-forge
     conda install obspy
@@ -69,27 +69,15 @@ Keyboard commands:
 The saved picks file is a JSON file that is an array of traces.
 - sufile: file name of the picked data
 - picktime: when the picking was done
-- picks: an array of traces
+- picks: an array of picks, with +/- 100 samps around the pick
 
-Each array member is a _trace_ object with the following fields:
+Each picks member is a _trace_ object with the following fields:
 - `pickT`- the time of the pick
 - `pickIdx` - the sample number
 - 'pickVal` - the value
 - `tracl` - see SU docs for the definition of these fields
-- `tracr`
-- `ffid` 
-- `tracf`
-- `ep` 
-- `cdp`
-- `cdpt`
-- `offset`
-- `sx` 
-- `sy` 
-- `gx` 
-- `gy` 
-- `ns` 
-- `dt` 
-- `samps` (an array) - the full seismic trace
+- `ens` - the ffid or cdp ensemble number
+- `samps` (an array) - 100 samps before the pick and 100 after
 
 Each member of `samps` is an object with `t` and `v` fields: `{t: 0, v: .01}`
 
@@ -97,6 +85,7 @@ Each member of `samps` is an object with `t` and `v` fields: `{t: 0, v: .01}`
 
   - Read SEG-Y files.
   - Read pick files.
+  - populate pick file more fully
 
 
   
