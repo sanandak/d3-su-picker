@@ -5,6 +5,8 @@
     <script src="bower_components/d3/d3.min.js" charset="utf-8"></script>
     <script src="bower_components/angular/angular.min.js" charset="utf-8"></script>
     <script src="app/app.js" charset="utf-8"></script>
+    <script src="app/d3seis.js" charset="utf-8"></script>
+    <script src="app/d3psd.js" charset="utf-8"></script>
 
     <link href="app/chart.css" rel="stylesheet">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
@@ -83,16 +85,9 @@
             </button>
           </div>
         </div>
-      <!--
-      <div>
-        <progress value={{mainctrl.progressVal}} max={{mainctrl.progressMax}}></progress>
-      </div>
-       {{mainctrl.progressVal}},{{mainctrl.progressMax}}
-
-      -->
       
       <div class="well">
-	<d3-ricker ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
+	<d3-seis ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
       </div>
 
       <div class="well">
