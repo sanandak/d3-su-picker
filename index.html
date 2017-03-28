@@ -39,20 +39,12 @@
             <h3>Current file: {{mainctrl.basename}}</h3>
             <table style="width: auto;" class="table table-bordered">
               <tr>
-                <td>Sample Interval</td>
-                <td>{{mainctrl.dt}}</td>
+                <td>dt / ns</td>
+                <td>{{mainctrl.dt}}s / {{mainctrl.ns}}</td>
               </tr>
               <tr>
-                <td>Number FFIDs</td>
-                <td>{{mainctrl.nens}}</td>
-              </tr>
-              <tr>
-                <td>First FFID</td>
-                <td>{{mainctrl.ens0}}</td>
-              </tr>
-              <tr>
-                <td>Last FFID</td>
-                <td>{{mainctrl.ensN}}</td>
+                <td>FFIDs / Min / Max</td>
+                <td>{{mainctrl.nens}} / {{mainctrl.ens0}} / {{mainctrl.ensN}}</td>
               </tr>
               <tr>
                 <td>Curr FFID</td>
@@ -67,9 +59,13 @@
 
         <div ng-hide="mainctrl.filename == null">
           <p style="font-size: 18px">
-          Filter: <input type="checkbox" ng-click="mainctrl.fcheck()" ng-model="mainctrl.checkVal" style="margin-right: 10px;margin-left: 6px; transform: scale(1.5);">
-          Flo: <input type="number" min="0" max="{{mainctrl.fhi}}" ng-change="mainctrl.fcheck()" ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px;">
-          Fhi: <input type="number" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-change="mainctrl.fcheck()" ng-model="mainctrl.fhi" style="width: 80px;">
+            <span width="40px">Start Time:</span><input type="number" ng-model="mainctrl.startT" style="margin-left: 10px;">
+            <span width="40px">End Time:</span> <input type="number" ng-model="mainctrl.endT" style="margin-left: 10px;">
+          <p style="font-size: 18px">
+            Filter: <input type="checkbox" ng-click="mainctrl.fcheck()" ng-model="mainctrl.checkVal" style="margin-right: 10px;margin-left: 6px; transform: scale(1.5);"> Flo: {{mainctrl.flo}} Hz, Fhi: {{mainctrl.fhi}} Hz</br>
+            
+          Flo: 0 <input id="flo" type="range" min="0" max="{{mainctrl.fhi}}" ng-mouseup="mainctrl.fcheck()" ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px; display: inline-block;"> {{mainctrl.fhi}}
+          Fhi: {{mainctrl.flo}} <input type="range" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-mouseup="mainctrl.fcheck()" ng-model="mainctrl.fhi" style="width: 80px;display: inline-block;"> {{mainctrl.fnyq}}
           </p>
         </div>
 

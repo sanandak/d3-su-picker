@@ -39,8 +39,10 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   self.psd={freqs:[], psd:[]};
 
   self.fnyq=100;
-  self.flo=0;
-  self.fhi=100;
+  self.flo=null;
+  self.fhi=null;
+  self.startT=null;
+  self.endT=null;
 
   /* start and periodically check for the server */
   
@@ -99,9 +101,13 @@ app.controller('MainCtrl', ['$scope', function($scope) {
         self.ens0 = hdrsByEnsemble[0].key;
         self.ensN = hdrsByEnsemble[self.nens-1].key;
         self.dt = segyHdrs.dt;
+        self.ns = segyHdrs.ns;
+        self.startT = 0.;
+        self.endT = (self.ns-1) * self.dt;
+        self.fnyq = 1./(2*self.dt);
         self.currEns = null;
 
-        //console.log(self.nens, self.ens0, self.ensN, self.dt, self.currEns);
+        console.log(self.nens, self.ens0, self.ensN, self.dt, self.currEns, self.fnyq);
         $scope.$apply();
       };
     })
@@ -141,9 +147,9 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     // see if the "filter" button is checked
     if(self.checkVal === true) {
       // if so, ask for filtered data
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '"}');
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '"}');
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     }
     // get the PSD
     ws.send('{"cmd":"getPSD", "ensemble":"' + ens + '"}');
@@ -174,9 +180,9 @@ app.controller('MainCtrl', ['$scope', function($scope) {
 
     // FIXME - this is repeat of the "next" block
     if(self.checkVal === true) { 
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '"}');
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '"}');
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     }
     ws.send('{"cmd":"getPSD", "ensemble":"' + ens + '"}');
     ws.onmessage = function(evt) {
@@ -206,9 +212,9 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     var ens = hdrsByEnsemble[self.currEns].key;
     console.log('ens', self.currEns, ens);
     if(self.checkVal) {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi +'"}')
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '"}')
+      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
     };
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);

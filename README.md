@@ -21,6 +21,7 @@ Install `node` (http://nodejs.org), which includes `npm` (the node
 package manager)
 
 Install `bower` (another package manager(?))
+
     npm install bower -g
   
     git clone https://github.com/sanandak/d3-su-picker
@@ -60,7 +61,6 @@ Keyboard commands:
 - `J` and `K` move the cursor by 10 samples
 - `h` and `l` move the cursor to the next/previous trace
 - `H` and `L` move the cursor by 10 traces
-- `N` and `P` displays the next/previous ensemble
 - `z` and `Z` zoom in and out in time
 - `t` and `T` zoom in and out in space (fewer and more traces are displayed)
 - `p` picks the time of the cursor

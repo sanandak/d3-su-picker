@@ -50,7 +50,7 @@ class Segy(object):
 segy = Segy()
 print(segy)
 
-def getTrc(t, headonly=True, flo=None, fhi=None):
+def getTrc(t, headonly=True, t1=-1, t2=-1, flo=None, fhi=None):
     """Convert a segy trace to a python dict
 
     An obspy SegyTrace t is converted to a python dict with optional
@@ -64,6 +64,8 @@ def getTrc(t, headonly=True, flo=None, fhi=None):
          empty array.
     flo, fhi : number
         If `flo` and `fhi` are specified, filter the data before return.
+    t1, t2 : number
+        If `t1` and `t2` are specified > 0, window the data and return only those
 
     Returns:
     --------
@@ -77,12 +79,29 @@ def getTrc(t, headonly=True, flo=None, fhi=None):
     samps = []
 
 
+    ampscale = 1
     if not headonly:
-        tarr=np.arange(0,ns*dt,dt)
         # because I used headonly in the original open,
         # the data are read anew from file every time data is
         # referenced (check this)
         d = t.data # read from file?
+        if t1 > 0 and t2 > 0:
+            i1 = int(t1/dt)
+            i2 = int(t2/dt)
+            d = d[i1:i2]
+            tarr=np.arange(i1*dt,(i2+1)*dt,dt)
+            print(i1,i2, dt,len(d), len(tarr))
+
+        else:
+            tarr=np.arange(0,ns*dt,dt)
+
+        max = np.max(d)
+        min = np.min(d)
+        ampscale = (max-min)
+        if ampscale != 0:
+            d /= (max-min)
+
+        #print("amp", ampscale, max, min)
 
         # if a filter is requested...
         if flo and fhi:
@@ -106,10 +125,41 @@ def getTrc(t, headonly=True, flo=None, fhi=None):
            "tracr": t.header.trace_sequence_number_within_segy_file,
            "ffid": t.header.original_field_record_number,
            "offset": t.header.distance_from_center_of_the_source_point_to_the_center_of_the_receiver_group,
+           "ampscale" : "{}".format(ampscale),
            "samps": samps}
     return trc
 
 def handleMsg(msgJ):
+    """Process the message in msgJ.
+
+    Parameters:
+    msgJ: dict
+        Dictionary with command sent from client
+
+    Returns:
+    string
+        JSON string with command response
+
+    Commands are of the form:
+    {'cmd' : 'getCCC', 'param0': 'param0val', ...}
+
+    Response is a string of the form (note that JSON is picky that keys
+    and strings should be enclosed in double quotes:
+    '{"cmd" : "getCmd", "cmd" : "<response>"}'
+
+    {'cmd':'getHello'} -> {"cmd":"getHello", "hello": "world"}
+
+    {'cmd':'getSegyHdrs', filename: f} -> 
+        {"cmd":"getSegyHdrs", "segyhdrs": 
+                              {ns:ns, dt:dt: hdrs:[hdr1, hdr2...]}}
+
+    FIXME FIXME - this currently returns "segy", not "ensemble" as the key
+    WARNING - you must call getSegyHdrs first
+    flo and fhi are optional.  If they are not present, no filtering
+    {'cmd':'getEnsemble', filename:f, ensemble:n, [flo:flo, fhi: fhi]} -> 
+        {"cmd":"getEnsemble", "segy":
+                              {ns:ns, dt:dt: traces:[trc1, trc2...]}}
+    """
     print('msgJ: {}'.format(msgJ))
     if msgJ['cmd'].lower() == 'getsegyhdrs':
         print('getting segyhdr', msgJ)
@@ -148,18 +198,25 @@ def handleMsg(msgJ):
         try:
             ens = int(msgJ['ensemble'])
             try:
+                t1 = float(msgJ['t1'])
+                t2 = float(msgJ['t2'])
+            except:
+                t1=-1
+                t2=-1
+            try:
                 flo = float(msgJ['flo'])
                 fhi = float(msgJ['fhi'])
                 print(flo, fhi)
-                traces = [getTrc(t,headonly=False,flo=flo, fhi=fhi) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
+                traces = [getTrc(t,headonly=False,t1=t1, t2=t2, flo=flo, fhi=fhi) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
             except:
                 print('err filt')
-                traces = [getTrc(t,headonly=False) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
+                traces = [getTrc(t,headonly=False,t1=t1,t2=t2) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
         except:
             print('err ens')
             ret = json.dumps({"cmd":"getEnsemble", "error": "Error reading ensemble number"})
             return ret
         print("ens = {} ntrc={}".format(ens, len(traces)))
+        #print(json.dumps(traces[0]))
         ret = json.dumps({"cmd": "segy",
                           "segy" : json.dumps({"dt":segy.dt, "ns":segy.ns, "traces":traces})})
         return ret
@@ -186,11 +243,13 @@ def handleMsg(msgJ):
         return ret
 
 #async def api(ws, path):
+# all this is stolen from the websockets tutorial. 
 @asyncio.coroutine
 def api(ws, path):
     while True:
         try:
 #            msg = await ws.recv()
+            # get a websockets string
             msg = yield from ws.recv()
             print('msg', msg)
             try:
@@ -200,21 +259,20 @@ def api(ws, path):
                 continue
 
             print("got json msgJ >{}<".format(msgJ))
+            # and handle it...
             retJ = handleMsg(msgJ)
 
             #print(retJ)
+            # and return the response to the client
             yield from ws.send(retJ)
             #            await ws.send(retJ)
 
-            
-            #now = datetime.datetime.utcnow().isoformat() + 'Z'
-            #await ws.send(now)
-            #await asyncio.sleep(random.random() * 3)
         except websockets.ConnectionClosed:
             print('connection closed')
             return
 
 ss = websockets.serve(api, 'localhost', 9191)
+# all this is stolen from the websockets tutorial.
 try:
     print("ready...")
     sys.stdout.flush()

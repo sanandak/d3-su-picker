@@ -11,11 +11,17 @@ angular.module('psqlApp')
     
     var data;
     var dt,traces, currEns, ensIdx, pickedTraces = [];
-    var firstTrc, lastTrc, ntrcs, npts, traceLen, cursT, cursTrc;
+    var firstTrc, lastTrc, ntrcs, npts, cursT, cursTrc;
     var tracesByEnsemble;
-    var displayScale = 1;
+    var displayScale = 1; // scale the traces in the "focus" panel by this
 
     /* init - label traces with unique id and sort */
+    // generate the y- (time) scale for the main window
+    var tmin, tmax;
+    var tScale = d3.scaleLinear();
+    var tScale2 = d3.scaleLinear();
+    
+    //console.log('t', traces[0], tmin, tmax);
     var init = function () {
       // label traces with unique id
       //console.log(data.traces)
@@ -37,6 +43,11 @@ angular.module('psqlApp')
       ensIdx = 0;
       dt = data.dt;
 
+      tmin = d3.min(traces[0].samps, function(d){return d.t;});
+      tmax = d3.max(traces[0].samps, function(d){return d.t;});
+      tScale.domain([tmin, tmax]);
+      tScale2.domain([tmin, tmax]);
+
     // add a "trace number within ensemble" header word
       for(var i=0; i<tracesByEnsemble.length; i++) {
         tracesByEnsemble[i].values.forEach(function(d,i) {
@@ -49,9 +60,8 @@ angular.module('psqlApp')
       lastTrc = traces.length - 1;
       ntrcs = traces.length;
       npts = traces[0].samps.length;
-      traceLen = (npts - 1) * dt;
 
-      cursT = Math.floor(npts/2) * dt;
+      cursT = Math.floor((tmax+tmin)/(2*dt)) * dt;
       cursTrc = Math.floor((lastTrc - firstTrc) / 2);
     }
 
@@ -60,6 +70,8 @@ angular.module('psqlApp')
       data = scope.data;
       init();
 
+      // plot the main window lines and fills..
+      // FIXME - can this be done with a function?
       lineg
         .selectAll('.line')
         .data(traces, function(d) {
@@ -102,7 +114,7 @@ angular.module('psqlApp')
           return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
         })
 
-      
+      // update all...
       updateFocusLines();
       updateFocusAreas();
       updateCursor();
@@ -113,14 +125,9 @@ angular.module('psqlApp')
     data = scope.data;
     init();
 
-//    scope.$watch('data', function(newval, oldval, scope) {
-//      console.log('data changed', newval, oldval);
-//      data = scope.data;
-//      init();
-//    }, true);
+    //tmin = d3.min(traces[0].samps, function(d){return d.t;});
+    //tmax = d3.max(traces[0].samps, function(d){return d.t;});
 
-    //console.log('ffid = ', ffids, ffididx);
-    //console.log('traces = ', traces, 'dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
     console.log('dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
 
     /*  form of the data:
@@ -134,7 +141,7 @@ angular.module('psqlApp')
 
     */
 
-    console.log('width,height', width, height);
+    // size of the main window (300x600)
     var margins = {
       left: 50,
       right: 30,
@@ -144,6 +151,7 @@ angular.module('psqlApp')
 	w = 300 - margins.left - margins.right,
 	h = 600 - margins.top - margins.bottom;
 
+    // size of the focus window (500x600)
     var margins2 = {
       left: 50,
       right: 30,
@@ -153,7 +161,7 @@ angular.module('psqlApp')
 	w2 = 500 - margins2.left - margins2.right,
 	h2 = 600 - margins2.top - margins2.bottom;
 
-    //    var svg = svgOuter.append('svg')
+    
     var svg = d3.select(element[0])
 	.append('svg')
 	.attr('width', w + margins.left + margins.right)
@@ -161,12 +169,16 @@ angular.module('psqlApp')
 	.append('g')
 	.attr('transform', 'translate(' + margins.left + ',' + margins.top + ')');
 
-    //svg.append('g').attr('class', 'data');
     svg.append('g').attr('class', 'x-axis axis');
     svg.append('g').attr('class', 'y-axis axis');
 
-    var tScale = d3.scaleLinear()
-	.domain([0, (npts - 1) * dt])
+    // generate the y- (time) scale for the main window
+    var tmin = d3.min(traces[0].samps, function(d){return d.t;});
+    var tmax = d3.max(traces[0].samps, function(d){return d.t;});
+
+    console.log('t', traces[0], tmin, tmax);
+    tScale = d3.scaleLinear()
+	.domain([tmin, tmax])
 	.range([0, h]);
     var tAxis = d3.axisLeft(tScale);
     // label
@@ -178,19 +190,22 @@ angular.module('psqlApp')
       .style('text-anchor', 'middle')
       .text('Time (s)')
 
-
+    // generate the pseudo-x - (amplitude) scale for the main window
+    // each trace is plotted full scale and then shrunk and shifted
+    // to the correct x-offset
     var vScale = d3.scaleLinear()
 	.domain([-1, 1])
 	.rangeRound([0, w]);
     var vAxis = d3.axisTop(vScale);
 
+    // generate the display x-scale (source-receiver offset)
     var oScale = d3.scaleLinear()
         .domain([d3.min(traces,function(d){return d.offset;}),
 		 d3.max(traces,function(d){return d.offset;})])
         .range([0,w])
-    
     var oAxis = d3.axisTop(oScale);
 
+    // display the real x-scale (offset)
     svg.select('.x-axis')
       .call(oAxis
             .ticks(5))
@@ -198,60 +213,57 @@ angular.module('psqlApp')
     svg.select('.y-axis')
       .call(tAxis)
 
-    // svg.append('linearGradient')
-    //     .attr('id', 'line-gradient')
-    //     .attr('gradientUnits', 'userSpaceOnUse')
-    //     .attr('x1', 0).attr('y1', yScale(-1))
-    //     .attr('x2', 0).attr('y2', yScale(1))
-    //     .selectAll('stop')
-    //     .data([
-    //  {'offset':'0%', color:'blue'},
-    //  {'offset':'100%', color:'red'}
-    //     ])
-    //     .enter()
-    //     .append('stop')
-    //     .attr('offset', function(d) {return d.offset;})
-    //     .attr('stop-color', function(d) {return d.color;})
-
+    // plot the wiggles and fills
     var line = d3.line()
-	.x(function(d) {
-          return vScale(d.v);
-	})
-	.y(function(d) {
-          return tScale(d.t);
-	});
+	.x(function(d) {return vScale(d.v);})
+	.y(function(d) {return tScale(d.t);});
+    // fill goes from 0 -> the value on the pseudo-x scale vscale...
     var area = d3.area()
-	.y(function(d) {
-          return tScale(d.t);
-	})
+	.y(function(d) {return tScale(d.t);})
 	.x0(vScale(0))
-	.x1(function(d) {
-          return vScale(d.v);
-	});
+	.x1(function(d) {return vScale(d.v);});
+
+
+    /* the core of the display is here, and repeated 4 times - 2 sets
+     * of `lines` in the main and focus windows, and 2 sets of
+     * `areas`.  The logic is the same in all cases:
+     * - .selectAll to get a set of lines
+     * - .data "join" the selection with the traces
+     *   (with the 2nd argument to make them unique with .id)
+     * - draw the line with the 'd' attr.
+     * - shift and shrink it to its right location
+     */
 
     var xofs;
     var lineg = svg.append('g')
 	.attr('class', 'lineg');
     lineg
       .selectAll('.line')
-      .data(traces, function(d) {
-        return d.id;
-      })
-      .selectAll('.line')
-      .data(traces, function(d) {
-        return d.id;
-      })
+    // here we ask that each line is tagged with `id`, a unique
+    // number we generated earlier.  thus, when we change views,
+    // d3 knows whether a line is new or not (by default, if you don't
+    // provide this, it uses a sequence number, which can be wrong).
+      .data(traces, function(d) {return d.id;})
       .enter()
       .append('path')
       .attr('class', 'line')
-      .attr('d', function(d) {
-        return line(d.samps);
-      })
+    // here we hand the function line a traces[i].samps
+    // where traces was handed to the .data() above
+    // and the .enter() will iterate through [i]
+    // (this takes some getting used to!! look at the d3 docs!!)
+      .attr('d', function(d) {return line(d.samps);})
       .attr('transform', function(d, i) {
         xofs = (w / ntrcs * i);
+        // here we take the wiggle that was plotted fully in the window
+        // and shift it to its final location and shrink it horizontally
+        // to its final size.
+        // ibid for all the following...
         return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
       });
 
+    // stolen from bl.ocks.org
+    // gradient fill from -1 to 1
+    // from 0->25%, red, from 25-50%, gradient from red to white, and so on.
     svg.append('linearGradient')
       .attr('id', 'area-gradient')
       .attr('gradientUnits', 'userSpaceOnUse')
@@ -270,6 +282,8 @@ angular.module('psqlApp')
       .attr('offset', function(d) {return d.offset;})
       .attr('stop-color', function(d) {return d.color;})
 
+    // slightly different gradient (FIXME - needed?)
+    // 0-50%, red->white, 50-100%, white->blue
     svg.append('linearGradient')
       .attr('id', 'focus-area-gradient')
       .attr('gradientUnits', 'userSpaceOnUse')
@@ -284,6 +298,7 @@ angular.module('psqlApp')
       .attr('offset', function(d) {return d.offset;})
       .attr('stop-color', function(d) {return d.color;})
 
+    // apply the gradient to the fill
     var areag = svg.append('g')
 	.attr('class', 'areag');
     areag
@@ -293,9 +308,7 @@ angular.module('psqlApp')
       .append('path')
       .attr('class', 'fills')
       .attr('fill', 'url(#area-gradient)')
-      .attr('d', function(d) {
-        return area(d.samps);
-      })
+      .attr('d', function(d) {return area(d.samps);})
       .attr('transform', function(d, i) {
         xofs = (w / ntrcs * i);
         return 'translate(' + xofs + ',0) scale(' + 1 / ntrcs + ',1)';
@@ -305,32 +318,27 @@ angular.module('psqlApp')
      * plot the zoomed in data
      */
 
-    var vScale2 = d3.scaleLinear().range([0, w2]);
-    var tScale2 = d3.scaleLinear().range([0, h2]);
 
+    var vScale2 = d3.scaleLinear().range([0, w2]);
+    tScale2 = d3.scaleLinear().range([0, h2]);
     var oScale2 = d3.scaleLinear()
-        .domain([d3.min(traces,function(d){return d.offset;}),
-		 d3.max(traces,function(d){return d.offset;})])
+        .domain([tmin, tmax])
         .range([0,w2])
-    
     var oAxis2 = d3.axisTop(oScale2);
 
-    tScale2.domain([0, (npts - 1) * dt]);
+
+    tScale2.domain([tmin, tmax]);
     vScale2.domain([-1, 1]);
 
     var vAxis2 = d3.axisTop(vScale2);
     var tAxis2 = d3.axisLeft(tScale2);
 
-    //    var focus = svgOuter.append('svg')
     var focus = d3.select(element[0])
 	.append('svg')
 	.attr('width', w2 + margins2.left + margins2.right)
 	.attr('height', h2 + margins2.top + margins2.bottom)
 	.append('g')
 	.attr('transform', 'translate(' + margins2.left + ',' + margins2.top + ')');
-    //    var focus = svgOuter.append('g')
-    //        .attr('class', 'focus')
-    //        .attr('transform', 'translate(' + margins2.left + ',' + margins2.top + ')');
 
     var focusLine = d3.line()
     //        .curve(d3.curveMonotoneY)
@@ -343,27 +351,12 @@ angular.module('psqlApp')
     //        .curve(d3.curveMonotoneY)
 	.x1(function(d, i) {return vScale2(displayScale * d.v);});
 
-    /* add zoom box */
-
-    /*
-      var zoom = d3.zoom()
-      .scaleExtent([1, Infinity])
-      .translateExtent([[0, 0], [w2, h2]])
-      .extent([[0, 0], [w2, h2]])
-      //      .on('zoom', zoomed);
-
-      svg.append('rect')
-      .attr('class', 'zoom')
-      .attr('width', w)
-      .attr('height', h)
-      .attr('transform', 'translate(' + margins.left + ',' + margins.top + ')')
-      .call(zoom)
-    */
-
     /* draw focus traces */
-    var bisectT = d3.bisector(function(d) {
-      return d.t;
-    }).left;
+    // a bisector searches an ordered array and returns
+    // the index where the new value would be inserted
+    // FIXME - needed? 
+    var bisectT = d3.bisector(function(d) {return d.t;}).left;
+
     focus.append('defs').append('clipPath')
       .attr('id', 'clip')
       .append('rect')
@@ -373,7 +366,7 @@ angular.module('psqlApp')
     var clipping = focus.append("g")
         .attr("clip-path", "url(#clip)");
 
-    console.log(vScale2.domain(), vScale2.range());
+//    console.log(vScale2.domain(), vScale2.range());
     var firstTrc = 0,
 	lastTrc = traces.length - 1;
     var ntrcsFoc = lastTrc - firstTrc + 1;
@@ -383,47 +376,18 @@ angular.module('psqlApp')
 	.attr('class', 'fareag')
     fareag
       .selectAll('.ffills')
-      .data(traces, function(d, i) {
-        return d.id;
-      })
+      .data(traces, function(d, i) {return d.id;})
       .enter()
       .append('path')
       .attr('class', 'ffills')
-    //        .attr('fill', 'url(#focus-area-gradient)')
+    // set the opacity of the trace with the cursor to 1, and dim the
+    // others
       .attr('fill-opacity', function(d,i) {return ((i==cursTrc) ? 1 : .3);})
-      .attr('d', function(d, i) {
-        return focusArea(d.samps);
-      })
+      .attr('d', function(d, i) {return focusArea(d.samps);})
       .attr('transform', function(d, i) {
         xofsFoc = (w2 / ntrcsFoc * i);
         return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
       })
-
-
-    /*
-      var tt = d3.select(element[0])
-      .append('svg')
-      .attr('width', w2 + margins2.left + margins2.right)
-      .attr('height', h2 + margins2.top + margins2.bottom)
-      .append('g')
-      .attr('transform', 'translate(' + margins2.left + ',' + margins2.top + ')');
-      var xScale3 = d3.scaleLinear().range([0, w2]);
-      var yScale3 = d3.scaleLinear().range([h2, 0]);
-      xScale3.domain([0, (npts - 1) * dt]);
-      yScale3.domain([ntrcs, 0]);
-      var xAxis3 = d3.axisBottom(xScale3);
-      var yAxis3 = d3.axisLeft(yScale3);
-      tt.append('g')
-      .attr('class', 'axis x-axis')
-      .attr('transform', 'translate(0,' + h2 + ')')
-      .call(xAxis3)
-      tt.append('g')
-      .attr('class', 'axis y-axis')
-      .call(yAxis3);
-
-      var ttpts = tt.append('g')
-      .attr('class', 'ttpts');
-    */
 
     var updateFocusLines = function() {
       ntrcsFoc = lastTrc - firstTrc + 1;
@@ -436,8 +400,7 @@ angular.module('psqlApp')
       // draw the current set of lines
       // update existing
       //      console.log(l);
-      l
-        .transition()
+      l.transition()
         .attr('d', function(d) {
           return focusLine(d.samps);
         })
@@ -465,23 +428,6 @@ angular.module('psqlApp')
     var flineg = clipping.append('g')
 	.attr('class', 'flineg')
     updateFocusLines();
-    /*
-    flineg
-      .selectAll('.fline')
-      .data(traces, function(d, i) {
-        return d.id;
-      })
-      .enter()
-      .append('path')
-      .attr('class', 'fline')
-      .attr('d', function(d) {
-        return focusLine(d.samps);
-      })
-      .attr('transform', function(d, i) {
-        xofsFoc = (w2 / ntrcsFoc * i);
-        return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
-      })
-    */
     focus.append('g')
       .attr('class', 'axis x-axis')
       .call(oAxis2.ticks(5))
@@ -490,7 +436,6 @@ angular.module('psqlApp')
       .attr('class', 'axis y-axis')
       .call(tAxis2)
 
-
     var updateFocusAreas = function() {
       ntrcsFoc = lastTrc - firstTrc + 1;
       var l = d3.selectAll('.fareag')
@@ -498,30 +443,22 @@ angular.module('psqlApp')
           .data(traces.slice(firstTrc, lastTrc + 1), function(d) {
             return d.id;
           })
-      l
-        .attr('fill-opacity', function(d,i) {
+      l.attr('fill-opacity', function(d,i) {
 //          console.log('fill', i, cursTrc-firstTrc);
           return ((i===(cursTrc-firstTrc)) ? 1 : .3);
         })
-        .attr('d', function(d) {
-          return focusArea(d.samps);
-        })
+        .attr('d', function(d) {return focusArea(d.samps);})
         .attr('transform', function(d, i) {
           xofsFoc = (w2 / ntrcsFoc * i);
-          //        console.log('update area',i, xofsFoc);
           return 'translate(' + xofsFoc + ',0) scale(' + 1 / ntrcsFoc + ',1)';
         })
       l.enter()
         .append('path')
         .attr('class', 'ffills')
-        .attr('d', function(d) {
-          return focusArea(d.samps);
-        })
+        .attr('d', function(d) {return focusArea(d.samps);})
         .attr('fill-opacity', function(d,i) {return ((i==(cursTrc-firstTrc)) ? 1 : .3);})
-
         .attr('transform', function(d, i) {
           xofsFoc = (w2 / ntrcsFoc * i);
-          //          console.log('enter area',i, xofsFoc);
           return 'translate(' + xofsFoc + ',0) scale(' +  1 / ntrcsFoc + ',1)';
         })
       l.exit().remove();
@@ -607,10 +544,9 @@ angular.module('psqlApp')
 	.text(cursorText)
 
     /* define the pick line vars (needed by brush?) */
-    var picks = [];
     var pickg = focus.append('g');
 
-    /* handle the brush */
+    /* handle the brush - the "zoom" controls on the main plot*/
     var brush = d3.brushY()
 	.extent([[0, 0], [w, h]])
 	.on('brush end', brushed);
@@ -635,7 +571,10 @@ angular.module('psqlApp')
 
     // function called when the brush is dragged
     function brushed() {
+      // get the current range of the brush on the main plot
       var s = d3.event.selection || tScale.range();
+      // set the domain of the focus plot
+      // by inverting the main-plot range
       tScale2.domain(s.map(tScale.invert, tScale));
       // redraw the time axis on the focus plot
       focus.select('.y-axis').call(tAxis2)
@@ -655,7 +594,6 @@ angular.module('psqlApp')
     };
 
     /* handle key interactions */
-
     d3.select('body')
       .on('keydown', function(d) {
         // scale traces up and down
@@ -667,13 +605,14 @@ angular.module('psqlApp')
 	  updateFocusAreas();
         }
 
-
         switch (d3.event.key) {
-          // move cursor left/right
+          // move cursor up/down
         case 'j':
         case 'k':
         case 'J':
         case 'K':
+
+          // calculate the new cursor position
           var td = tScale2.domain();
           var tdlen = td[1] - td[0];
           var incr = d3.event.shiftKey ? 10 : 1;
@@ -682,21 +621,19 @@ angular.module('psqlApp')
           cursT = Math.floor(cursT/dt) * dt; // make cursT a multiple of dt
           
           //console.log('td0',cursT, td, tdlen);
-	  // moved off screen...
+	  // if it has moved off screen, recalculate the domain
           if (cursT <= td[0] || cursT >= td[1]) {
             if (cursT <= td[0]) {
               td[0] -= tdlen/4;
-              if(td[0] < 0) td[0] = 0;
-              td[1] = td[0] + tdlen;
+              if(td[0] < tmin) td[0] = tmin;
+              td[1] = td[0] + tdlen - dt;
             } else {
               td[1] += tdlen/4;
-              if(td[1] > (npts-1)*dt) td[1] = (npts-1) * dt;
-              td[0] = td[1] - tdlen;
+              if(td[1] > tmax) td[1] = tmax - dt;
+              td[0] = td[1] - tdlen + dt;
             }
-            
-            
+
             //console.log('td1',td);
-            
             tScale2.domain(td);
             focus.select('.y-axis')
               .transition()
@@ -719,6 +656,7 @@ angular.module('psqlApp')
               })
             updatePicks();
           }
+          // and redraw the cursor
           updateCursor();
 
           break;
@@ -729,18 +667,19 @@ angular.module('psqlApp')
         case 'H':
         case 'L':
 	  //            console.log('hl key', d3.event.code, d3.event.shiftKey, cursTrc, firstTrc, lastTrc);
+          // calculate the new trace for the cursor
           var trcincr = d3.event.shiftKey ? 10 : 1;
           trcincr *= d3.event.code === 'KeyL' ? 1 : -1;
           cursTrc = Math.min(cursTrc + trcincr, lastTrc);
           cursTrc = Math.max(cursTrc, firstTrc);
 
-          var i = bisectT(traces[cursTrc].samps, cursT);
+          //var i = bisectT(traces[cursTrc].samps, cursT);
           xofsFoc = (w2 / ntrcsFoc * (cursTrc - firstTrc));
           //console.log('jk key', d3.event.code, d3.event.shiftKey, cursTrc, firstTrc, lastTrc, i, xofsFoc);
 
           updateCursor();
 
-          // dim other traces
+          // make the cursor-trace opaque and dim other traces
           fareag.selectAll('.ffills')
             .attr('fill-opacity', function(d,i) {
 	      //                console.log('hl', i, cursTrc, firstTrc);
@@ -750,10 +689,8 @@ angular.module('psqlApp')
 
           // remove the current pick
         case 'd':
-          delete traces[cursTrc].pickT;
-          delete traces[cursTrc].pickIdx;
-          delete traces[cursTrc].pickVal;
           // search for this trc in the pickedtraces
+          // use the globally unique tracr header (FIXME-is this true?)
           var idx = pickedTraces.map(function(d) {return d.tracr;})
               .indexOf(traces[cursTrc].tracr);
           if(idx >= 0)
@@ -772,11 +709,10 @@ angular.module('psqlApp')
           var trchtFoc = (r[1] - r[0]) / ntrcsFoc;
           var i = bisectT(traces[cursTrc].samps, cursT);
           var tracr = traces[cursTrc].tracr;
-	  
-//          traces[cursTrc].pickT = cursT;
-//          traces[cursTrc].pickIdx = i;
-          //	  traces[cursTrc].pickVal = traces[cursTrc].samps[i].v
-          var newpk = {tracr: tracr, // used to id the trace uniquely?
+
+          // use trace - a globally unique id to tag a trace
+          // FIXME - is this true?
+          var newpk = {tracr: tracr, 
                        // used to plot the pick in x
                        tracens: traces[cursTrc].tracens,
                        ens: traces[cursTrc].ffid,
@@ -836,13 +772,14 @@ angular.module('psqlApp')
         switch (d3.event.key) {
         case 'z':
         case 'Z':
+          // calculate the new time domain and reset the axis
           var trange = tScale2.domain();
           var tlen = trange[1] - trange[0];
           var dir = d3.event.shiftKey ? 4 : 1; // zoom in or out?
-          var tmin = Math.max(0, cursT - (dir * tlen / 4));
-          var tmax = Math.min(dt * (npts - 1), cursT + (dir * tlen / 4));
+          var tmn = Math.max(tmin, cursT - (dir * tlen / 4));
+          var tmx = Math.min(tmax, cursT + (dir * tlen / 4));
           //console.log(d3.event.key, d3.event.shiftKey, trange, tlen, dir, cursT, tmin, tmax);
-          tScale2.domain([tmin, tmax])
+          tScale2.domain([tmn, tmx])
           focus.select('.y-axis')
             .call(tAxis2)
           focus.selectAll('.fline')
@@ -866,6 +803,7 @@ angular.module('psqlApp')
         // 't' - zoom in to fewer traces (2 on either side of curr trace)
         // 'T' -  zoom out to all traces
         if (d3.event.key === 't') {
+          // calculate the new range of traces and redraw everything
           ntrcsFoc = lastTrc - firstTrc + 1;
 	  if(ntrcsFoc <= 8) {return;}
           firstTrc = Math.max(cursTrc - Math.floor(ntrcsFoc/4), 0);
@@ -929,12 +867,14 @@ angular.module('psqlApp')
         }
       });
 
+    // TODO - on mouseover of pick, display pick info?
     function handleMouseoverPick(d,i) {
       console.log('mouseover', d, i);
     }
     function handleMouseoutPick(d,i) {
     }
 
+    /* NMO line */
     var v = 1500;
     var anchorT, anchorOfs;
     var nmo = focus.append('g')
@@ -948,13 +888,12 @@ angular.module('psqlApp')
         .x(function(d) { return oScale2(d[0]);})
         .y(function(d) { return tScale2(d[1]);})
 
-
     var showNMO = false;
     focus.append('rect')
-        .attr('class', 'overlay')
-        .attr('width', w2)
-        .attr('height', h2)
-//      .on('mouseover', function() {nmo.style('display', null);})
+      .attr('class', 'overlay')
+      .attr('width', w2)
+      .attr('height', h2)
+    //      .on('mouseover', function() {nmo.style('display', null);})
       .on('mouseout', function() {
         nmo.style('display', 'none');
         showNMO = false;
@@ -969,45 +908,47 @@ angular.module('psqlApp')
         showNMO = true;
         
       })        
-        .on('mousemove', function() {
-	  var m = d3.mouse(this);
-	  var mT = tScale2.invert(m[1]);
-	  var mY = oScale2.invert(m[0]);
+      .on('mousemove', function() {
+	var m = d3.mouse(this);
+	var mT = tScale2.invert(m[1]);
+	var mY = oScale2.invert(m[0]);
 
-	  var x = m[0];
-	  var dom = vScale2.domain(),
-              dl = dom[1] - dom[0];
-	  var trcnum = Math.floor(ntrcs * (mY - dom[0]) / dl);
-	  if(trcnum < 0) trcnum = 0;
-	  if(trcnum > ntrcs-1) trcnum = ntrcs - 1;
-	  var i = bisectT(traces[trcnum].samps, mT);
-	  var xofs = (w2/ntrcs * trcnum);
-	  
-//	  console.log('mousemove', m, mY, mT, trcnum, i);
+	var x = m[0];
+	var dom = vScale2.domain(),
+            dl = dom[1] - dom[0];
+	var trcnum = Math.floor(ntrcs * (mY - dom[0]) / dl);
+	if(trcnum < 0) trcnum = 0;
+	if(trcnum > ntrcs-1) trcnum = ntrcs - 1;
+	var i = bisectT(traces[trcnum].samps, mT);
+	var xofs = (w2/ntrcs * trcnum);
+	
+        //	  console.log('mousemove', m, mY, mT, trcnum, i);
 
-          var vnmo2 = (mY*mY - anchorOfs*anchorOfs)/(mT*mT - anchorT*anchorT);
-          if(vnmo2 <= 0 || showNMO === false) {
-            nmo
-              .style('display', 'none')
-          } else {
-            var vnmo = Math.sqrt(vnmo2);
-            var t0 = Math.sqrt(anchorT*anchorT - anchorOfs * anchorOfs/(vnmo*vnmo));
+        // calculate vnmo from the current point to the anchor:
+        // t_anc(x_anc)^2 = t0^2 + x_anc^2/v^2
+        // t_mou(x_mou)^2 = t0^2 + x_mou^2/v^2
+        var vnmo2 = (mY*mY - anchorOfs*anchorOfs)/(mT*mT - anchorT*anchorT);
+        if(vnmo2 <= 0 || showNMO === false) {
+          nmo.style('display', 'none'); // WARNING: null is show, 'none' is don't show!!
+        } else {
+          var vnmo = Math.sqrt(vnmo2);
+          var t0 = Math.sqrt(anchorT*anchorT - anchorOfs * anchorOfs/(vnmo*vnmo));
           
-//            console.log(vnmo, t0);
+          //            console.log(vnmo, t0);
             v = vnmo;
 
-            var nmopts = traces.map(function(d) {return [d.offset, Math.sqrt(t0*t0 + d.offset * d.offset / (v * v))];});
+          // calculate the nmo for each trace, at this vel...
+          var nmopts = traces.map(function(d) {return [d.offset, Math.sqrt(t0*t0 + d.offset * d.offset / (v * v))];});
           //console.log(nmopts);
 
-            focus
-              .select('#nmoLine')
-              .datum(nmopts)
-              .attr('d', nmoLine);
-            nmo
-              .style('display', null)
-	    //scope.mouseTime({d:mT}); // pass mouse time to controller
-          }
-        });
+          // and draw it.
+          focus
+            .select('#nmoLine')
+            .datum(nmopts)
+            .attr('d', nmoLine);
+          nmo.style('display', null)
+        }
+      });
   };
 
   return {
