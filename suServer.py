@@ -50,7 +50,7 @@ class Segy(object):
 segy = Segy()
 print(segy)
 
-def getTrc(t, headonly=True, t1=-1, t2=-1, flo=None, fhi=None):
+def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
     """Convert a segy trace to a python dict
 
     An obspy SegyTrace t is converted to a python dict with optional
@@ -78,13 +78,22 @@ def getTrc(t, headonly=True, t1=-1, t2=-1, flo=None, fhi=None):
     ns = t.header.number_of_samples_in_this_trace
     samps = []
 
-
     ampscale = 1
     if not headonly:
         # because I used headonly in the original open,
         # the data are read anew from file every time data is
         # referenced (check this)
         d = t.data # read from file?
+        print('in gettrc', decimate)
+        if decimate:
+            print('decimate', decimate, dt)
+            try:
+                d = sig.decimate(d, q=10, zero_phase=True)
+                dt = dt*10
+            except:
+                print('decimate failed')
+                return
+            
         if t1 > 0 and t2 > 0:
             i1 = int(t1/dt)
             i2 = int(t2/dt)
@@ -126,6 +135,8 @@ def getTrc(t, headonly=True, t1=-1, t2=-1, flo=None, fhi=None):
            "ffid": t.header.original_field_record_number,
            "offset": t.header.distance_from_center_of_the_source_point_to_the_center_of_the_receiver_group,
            "ampscale" : "{}".format(ampscale),
+           "ns": len(samps),
+           "dt": dt,
            "samps": samps}
     return trc
 
@@ -195,8 +206,16 @@ def handleMsg(msgJ):
             ret = json.dumps({"cmd":"getEnsemble", "error": "Error reading ensemble"})
             return ret
 
+        decimate = False
         try:
             ens = int(msgJ['ensemble'])
+            try:
+                decimate = msgJ['decimate']
+                print('dec t', decimate)
+            except:
+                decimate=False
+                print('dec f', decimate)
+            
             try:
                 t1 = float(msgJ['t1'])
                 t2 = float(msgJ['t2'])
@@ -207,18 +226,22 @@ def handleMsg(msgJ):
                 flo = float(msgJ['flo'])
                 fhi = float(msgJ['fhi'])
                 print(flo, fhi)
-                traces = [getTrc(t,headonly=False,t1=t1, t2=t2, flo=flo, fhi=fhi) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
+                traces = [getTrc(t,headonly=False, decimate=decimate, t1=t1, t2=t2, flo=flo, fhi=fhi) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
             except:
                 print('err filt')
-                traces = [getTrc(t,headonly=False,t1=t1,t2=t2) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
+                traces = [getTrc(t,headonly=False,decimate=decimate, t1=t1,t2=t2) for t in segy.segyfile.traces if t.header.original_field_record_number == ens]
         except:
-            print('err ens')
+            print('err ens', ens, decimate)
             ret = json.dumps({"cmd":"getEnsemble", "error": "Error reading ensemble number"})
             return ret
         print("ens = {} ntrc={}".format(ens, len(traces)))
+        # dt/ns could change from the original due to decimation
+        dt = traces[0]["dt"]
+        ns = traces[0]["ns"]
+        print('dt, ns', dt, ns)
         #print(json.dumps(traces[0]))
         ret = json.dumps({"cmd": "segy",
-                          "segy" : json.dumps({"dt":segy.dt, "ns":segy.ns, "traces":traces})})
+                          "segy" : json.dumps({"dt":dt, "ns":ns, "traces":traces})})
         return ret
 
     if msgJ["cmd"].lower() == "getpsd":

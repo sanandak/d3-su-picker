@@ -15,7 +15,7 @@ const cexec = require('child_process').execFile;
 var app = angular.module('psqlApp', []);
 
 /* mainctrl - angularjs controller that starts suserver
- * and provides data to the directives 
+ * and provides data to the directives
  */
 
 app.controller('MainCtrl', ['$scope', function($scope) {
@@ -27,7 +27,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   var wsURL = 'ws://localhost:9191/websocket';
   var ws;
 
-  /* variables that appear on the front page or are provided to 
+  /* variables that appear on the front page or are provided to
    * directives */
   self.wsIsOpen = false;
   self.nens = 0;
@@ -43,9 +43,10 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   self.fhi=null;
   self.startT=null;
   self.endT=null;
+  self.decimate=false;
 
   /* start and periodically check for the server */
-  
+
   function startws() {
     ws = new WebSocket(wsURL);
     ws.onopen = function() {
@@ -62,9 +63,11 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     if(!ws || ws.readyState === WebSocket.CLOSED)
       startws();
   }
+	checkws();
   setInterval(checkws, 5000);
 
   var hdrsByEnsemble;
+  var servMsg;
 
   // when the user chooses "open" button, this function is called
   // it doesn't actually get the file - it calls the openfile
@@ -80,12 +83,13 @@ app.controller('MainCtrl', ['$scope', function($scope) {
 
       // same file - ignore
       if (self.filename == filepath) {return;}
-      
+
       self.filename = filepath;
       self.basename = path.basename(self.filename)
 
       // get hdrs only
-      ws.send('{"cmd":"getSegyHdrs", "filename": "' + filepath + '"}');
+      servMsg = {cmd:'getSegyHdrs', filename:filepath};
+      ws.send(JSON.stringify(servMsg))
       ws.onmessage = function(evt) {
         var msg = JSON.parse(evt.data);
         var segyHdrs = JSON.parse(msg['segy'])
@@ -114,7 +118,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     // presses the actual openfile (hidden) button
     chooser.click();
   }
-  
+
   // when the user chooses "save", this function is called
    self.save = function() {
     //console.log('savemenu click');
@@ -140,19 +144,32 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     // first time...
     if(self.currEns === null) {self.currEns = 0;}
     else if(++self.currEns == self.nens) {self.currEns = 0;}
-    
+
     var ens = hdrsByEnsemble[self.currEns].key;
     self.currEnsNum = ens;
     console.log('ens', self.currEns, ens);
     // see if the "filter" button is checked
     if(self.checkVal === true) {
       // if so, ask for filtered data
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 flo: self.flo,
+		 fhi: self.fhi,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     }
+    ws.send(JSON.stringify(servMsg));
     // get the PSD
-    ws.send('{"cmd":"getPSD", "ensemble":"' + ens + '"}');
+    servMsg = {cmd:"getPSD", ensemble: ens};
+    ws.send(JSON.stringify(servMsg));
+
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);
       console.log(msg['cmd'])
@@ -170,6 +187,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
       $scope.$apply();
     }
   };
+
   self.prev = function() {
     console.log("prev ens")
     if(self.currEns === null) {self.currEns = self.nens - 1;}
@@ -179,12 +197,26 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     console.log('ens', ens);
 
     // FIXME - this is repeat of the "next" block
-    if(self.checkVal === true) { 
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+    if(self.checkVal === true) {
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 flo: self.flo,
+		 fhi: self.fhi,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     }
-    ws.send('{"cmd":"getPSD", "ensemble":"' + ens + '"}');
+    ws.send(JSON.stringify(servMsg));
+    // get the PSD
+    servMsg = {cmd:"getPSD", ensemble: ens};
+    ws.send(JSON.stringify(servMsg));
+
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);
       console.log(msg['cmd'])
@@ -212,10 +244,21 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     var ens = hdrsByEnsemble[self.currEns].key;
     console.log('ens', self.currEns, ens);
     if(self.checkVal) {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "flo":"' + self.flo + '", "fhi":"' + self.fhi + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 flo: self.flo,
+		 fhi: self.fhi,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     } else {
-      ws.send('{"cmd":"getEnsemble", "ensemble":"' + ens + '", "t1":"' + self.startT + '", "t2":"' + self.endT + '"}');
+      servMsg = {cmd:'getEnsemble',
+		 ensemble: ens,
+		 t1: self.startT,
+		 t2: self.endT,
+		 decimate: self.decimate};
     };
+    ws.send(JSON.stringify(servMsg))
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);
       console.log(msg['cmd'])
@@ -229,11 +272,10 @@ app.controller('MainCtrl', ['$scope', function($scope) {
       }
     }
   };
-    
+
   // when the directive updates picks, this function is called
   // to update the local variable pickedTraces...
   self.setpicks = function(picks) {
     pickedTraces = picks;
   }
 }]);
-
