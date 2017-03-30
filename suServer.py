@@ -1,37 +1,44 @@
 #!/usr/bin/env python
+"""
+NAME
+    suServer -  websocket server for su data
 
-# websocket server for su data
-# returns a json string
+RETURNS
+   returns a json string
+"""
 
+from datetime import datetime
 import sys
-
-# FIXME - this only works with 3.5, not 3.6
-if sys.version_info == (3, 6):
-    raise "** must use python v3.4 or 3.5"
-
 import asyncio
+import json
 import websockets
-from datetime import datetime, timedelta
 import numpy as np
 import scipy.signal as sig
-import json
-import pprint
+#import pprint
 
 #print("loading obspy...")
 from obspy.io.segy.segy import _read_su
 #print("... done.")
 
+# FIXME - this only works with 3.5, not 3.6
+if sys.version_info == (3, 6):
+    raise "** must use python v3.4 or 3.5"
+
+
+
 class Segy(object):
+    """Local version of the SU/SEGY file"""
     def __init__(self):
         self.filename = None
         self.hdrs = None
         self.traces = None
-        self.ns = 0
+        self.nsamps = 0
         self.dt = 0
         self.segyfile = None
 
     def getPSD(self, ens):
-        """ Calculate and return average power spectral density for ensemble 
+        """
+        Calculate and return average power spectral density for ensemble
         `ens` using Welch's method
         """
         print('in getpsd, ens=', ens, self)
@@ -41,14 +48,18 @@ class Segy(object):
         psds = [sig.welch(t.data, fs=1/self.dt, scaling='spectrum') for t in enstrcs]
         # psds is [(f,psd), (f,psd)...]
         freqs = psds[0][0]
-        psdonly = [p for (f,p) in psds]
+        psdonly = [p for (f, p) in psds]
         psdonly = np.array(psdonly).transpose()
-        psdavg = np.mean(psdonly,1)
+        psdavg = np.mean(psdonly, 1)
         print(freqs.shape, psdavg.shape)
         return(freqs, psdavg)
 
+    def getTrc(self, trcNum=0):
+        """ Get trace `trcNum` and return a python dict"""
+        pass
+
 segy = Segy()
-print(segy)
+#print(segy)
 
 def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
     """Convert a segy trace to a python dict
@@ -75,7 +86,7 @@ def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
 
     """
     dt = t.header.sample_interval_in_ms_for_this_trace/(1000.*1000.)
-    ns = t.header.number_of_samples_in_this_trace
+    nsamps = t.header.number_of_samples_in_this_trace
     samps = []
 
     ampscale = 1
@@ -84,9 +95,9 @@ def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
         # the data are read anew from file every time data is
         # referenced (check this)
         d = t.data # read from file?
-        print('in gettrc', decimate)
+        #print('in gettrc', decimate)
         if decimate:
-            print('decimate', decimate, dt)
+            #print('decimate', decimate, dt)
             try:
                 d = sig.decimate(d, q=10, zero_phase=True)
                 dt = dt*10
@@ -99,10 +110,10 @@ def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
             i2 = int(t2/dt)
             d = d[i1:i2]
             tarr=np.arange(i1*dt,(i2+1)*dt,dt)
-            print(i1,i2, dt,len(d), len(tarr))
+            #print(i1,i2, dt,len(d), len(tarr))
 
         else:
-            tarr=np.arange(0,ns*dt,dt)
+            tarr=np.arange(0,nsamps*dt,dt)
 
         max = np.max(d)
         min = np.min(d)
@@ -135,7 +146,7 @@ def getTrc(t, headonly=True, decimate=False, t1=-1, t2=-1, flo=None, fhi=None):
            "ffid": t.header.original_field_record_number,
            "offset": t.header.distance_from_center_of_the_source_point_to_the_center_of_the_receiver_group,
            "ampscale" : "{}".format(ampscale),
-           "ns": len(samps),
+           "nsamps": len(samps),
            "dt": dt,
            "samps": samps}
     return trc
@@ -162,20 +173,19 @@ def handleMsg(msgJ):
 
     {'cmd':'getSegyHdrs', filename: f} -> 
         {"cmd":"getSegyHdrs", "segyhdrs": 
-                              {ns:ns, dt:dt: hdrs:[hdr1, hdr2...]}}
+                              {ns:nsamps, dt:dt: hdrs:[hdr1, hdr2...]}}
 
     FIXME FIXME - this currently returns "segy", not "ensemble" as the key
     WARNING - you must call getSegyHdrs first
     flo and fhi are optional.  If they are not present, no filtering
     {'cmd':'getEnsemble', filename:f, ensemble:n, [flo:flo, fhi: fhi]} -> 
         {"cmd":"getEnsemble", "segy":
-                              {ns:ns, dt:dt: traces:[trc1, trc2...]}}
+                              {ns:nsamps, dt:dt: traces:[trc1, trc2...]}}
     """
     print('msgJ: {}'.format(msgJ))
     if msgJ['cmd'].lower() == 'getsegyhdrs':
-        print('getting segyhdr', msgJ)
         filename = msgJ['filename']
-        print(filename)
+        print('getting segyhdr >{}<, filename: {}'.format(msgJ, filename))
 
         t0 =datetime.now()
         if segy.filename != filename:
@@ -190,14 +200,16 @@ def handleMsg(msgJ):
             print("ntrcs = {}".format(len(segy.segyfile.traces)))
 
         hdrs = [getTrc(t, headonly=True) for t in segy.segyfile.traces]
-        ns = segy.segyfile.traces[0].header.number_of_samples_in_this_trace
+        nsamps = segy.segyfile.traces[0].header.number_of_samples_in_this_trace
         dt = segy.segyfile.traces[0].header.sample_interval_in_ms_for_this_trace/(1000.*1000.)
-        segy.ns = ns
+        segy.nsamps = nsamps
         segy.dt = dt
         segy.hdrs = hdrs
 
         ret = json.dumps({"cmd": "readSegyHdrs",
-                          "segy" : json.dumps({"dt":dt, "ns":ns, "hdrs":hdrs})})
+                          "segy" : json.dumps({"dt":dt, "ns":nsamps,
+                                               "filename": segy.filename,
+                                               "hdrs":hdrs})})
         return ret
 
     if msgJ['cmd'].lower() == 'getensemble':
@@ -235,13 +247,15 @@ def handleMsg(msgJ):
             ret = json.dumps({"cmd":"getEnsemble", "error": "Error reading ensemble number"})
             return ret
         print("ens = {} ntrc={}".format(ens, len(traces)))
-        # dt/ns could change from the original due to decimation
+        # dt/nsamps could change from the original due to decimation
         dt = traces[0]["dt"]
-        ns = traces[0]["ns"]
-        print('dt, ns', dt, ns)
+        nsamps = traces[0]["nsamps"]
+        print('dt, nsamps', dt, nsamps)
         #print(json.dumps(traces[0]))
         ret = json.dumps({"cmd": "segy",
-                          "segy" : json.dumps({"dt":dt, "ns":ns, "traces":traces})})
+                          "segy" : json.dumps({"dt":dt, "ns":nsamps,
+                                               "filename": segy.filename,
+                                               "traces":traces})})
         return ret
 
     if msgJ["cmd"].lower() == "getpsd":
@@ -259,7 +273,10 @@ def handleMsg(msgJ):
                               "error": "Error reading ensemble number"})
             return ret
 
-        return json.dumps({"cmd":"getPSD", "ensemble":ens, "freqs":f.tolist(), "psd":psd.tolist()})
+        # FIXME - this should be cmd:getPSD, psd:{...}
+        return json.dumps({"cmd":"getPSD", "ensemble":ens,
+                           "filename": segy.filename,
+                           "freqs":f.tolist(), "psd":psd.tolist()})
     
     if msgJ["cmd"].lower() == "gethello":
         ret = json.dumps({"cmd": "hello", "hello": "world"})

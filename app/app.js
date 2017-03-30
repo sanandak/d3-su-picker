@@ -6,6 +6,9 @@
  * 3. "directives" that plot the data
  */
 
+'use strict';
+const _version = '0.2.0';
+
 var fs = require('fs');
 var path = require('path');
 var sprintf = require('sprintf-js').sprintf;
@@ -22,7 +25,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
 
   self = this;
   self.filename = null;
-
+  self.version = _version;
   var pickedTraces;
   var wsURL = 'ws://localhost:9191/websocket';
   var ws;
@@ -56,14 +59,15 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     };
     ws.onerror = function() {
       console.log('ws err');
-    }
+    };
   }
   function checkws() {
     //console.log('checking ws state');
-    if(!ws || ws.readyState === WebSocket.CLOSED)
+    if(!ws || ws.readyState === WebSocket.CLOSED) {
       startws();
+    }
   }
-	checkws();
+  checkws();
   setInterval(checkws, 5000);
 
   var hdrsByEnsemble;
@@ -89,10 +93,10 @@ app.controller('MainCtrl', ['$scope', function($scope) {
 
       // get hdrs only
       servMsg = {cmd:'getSegyHdrs', filename:filepath};
-      ws.send(JSON.stringify(servMsg))
+      ws.send(JSON.stringify(servMsg));
       ws.onmessage = function(evt) {
         var msg = JSON.parse(evt.data);
-        var segyHdrs = JSON.parse(msg['segy'])
+        var segyHdrs = JSON.parse(msg['segy']);
         //console.log(msg['cmd'], segyHdrs)
 
         // group into ensembles
@@ -108,7 +112,9 @@ app.controller('MainCtrl', ['$scope', function($scope) {
         self.ns = segyHdrs.ns;
         self.startT = 0.;
         self.endT = (self.ns-1) * self.dt;
-        self.fnyq = 1./(2*self.dt);
+        self.fnyq = 1.0/(2*self.dt);
+        self.flo=0.0;
+        self.fhi=self.fnyq/2;
         self.currEns = null;
 
         console.log(self.nens, self.ens0, self.ensN, self.dt, self.currEns, self.fnyq);
@@ -148,23 +154,12 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     var ens = hdrsByEnsemble[self.currEns].key;
     self.currEnsNum = ens;
     console.log('ens', self.currEns, ens);
-    // see if the "filter" button is checked
-    if(self.checkVal === true) {
-      // if so, ask for filtered data
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 flo: self.flo,
-		 fhi: self.fhi,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    } else {
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    }
+    servMsg = {cmd:'getEnsemble',
+	       ensemble: ens,
+	       t1: self.startT,
+	       t2: self.endT,
+	       decimate: self.decimate};
+
     ws.send(JSON.stringify(servMsg));
     // get the PSD
     servMsg = {cmd:"getPSD", ensemble: ens};
@@ -197,21 +192,12 @@ app.controller('MainCtrl', ['$scope', function($scope) {
     console.log('ens', ens);
 
     // FIXME - this is repeat of the "next" block
-    if(self.checkVal === true) {
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 flo: self.flo,
-		 fhi: self.fhi,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    } else {
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    }
+    servMsg = {cmd:'getEnsemble',
+	       ensemble: ens,
+	       t1: self.startT,
+	       t2: self.endT,
+	       decimate: self.decimate};
+
     ws.send(JSON.stringify(servMsg));
     // get the PSD
     servMsg = {cmd:"getPSD", ensemble: ens};
@@ -238,33 +224,26 @@ app.controller('MainCtrl', ['$scope', function($scope) {
   // handle the filter value changes...
   self.checkVal = false;
   self.fcheck = function() {
-    console.log("check:", self.checkVal);
-    console.log("f", self.flo, self.fhi);
+    console.log('check:', self.checkVal);
+    console.log('f', self.flo, self.fhi);
 
     var ens = hdrsByEnsemble[self.currEns].key;
     console.log('ens', self.currEns, ens);
-    if(self.checkVal) {
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 flo: self.flo,
-		 fhi: self.fhi,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    } else {
-      servMsg = {cmd:'getEnsemble',
-		 ensemble: ens,
-		 t1: self.startT,
-		 t2: self.endT,
-		 decimate: self.decimate};
-    };
-    ws.send(JSON.stringify(servMsg))
+    servMsg = {cmd:'getEnsemble',
+	       ensemble: ens,
+	       flo: self.flo,
+	       fhi: self.fhi,
+	       t1: self.startT,
+	       t2: self.endT,
+	       decimate: self.decimate};
+    
+    ws.send(JSON.stringify(servMsg));
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);
-      console.log(msg['cmd'])
+      console.log(msg['cmd']);
       // FIXME - this should be 'getEnsemble' not 'segy'
-      if(msg['cmd'] == 'segy') {
-        var segy = JSON.parse(msg['segy'])
+      if(msg['cmd'] === 'segy') {
+        var segy = JSON.parse(msg['segy']);
         self.data=segy;
 	//console.log(msg['cmd'], segy)
 	self.data=segy;

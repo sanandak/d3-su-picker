@@ -1,109 +1,121 @@
 <!DOCTYPE html>
 <html ng-app="psqlApp">
-<head>
-	<title>d3-based SU Picker</title>
-	<script src="bower_components/d3/d3.min.js" charset="utf-8"></script>
-	<script src="bower_components/angular/angular.min.js" charset="utf-8"></script>
-	<script src="app/app.js" charset="utf-8"></script>
-	<script src="app/d3seis.js" charset="utf-8"></script>
-	<script src="app/d3psd.js" charset="utf-8"></script>
+  <head>
+    <title>d3-based SU Picker</title>
+    <script src="bower_components/d3/d3.min.js" charset="utf-8"></script>
+    <script src="bower_components/angular/angular.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="app/app.js" charset="utf-8"></script>
+    <script type="text/javascript" src="app/d3seis.js" charset="utf-8"></script>
+    <script type="text/javascript" src="app/d3psd.js" charset="utf-8"></script>
+    <script type="text/javascript"
+            src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <link href="app/chart.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
-	<link href="app/chart.css" rel="stylesheet">
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  </head>
+  <body>
+    <div ng-controller="MainCtrl as mainctrl">
+      <div class="well">
+	<h1>SU Picker <small>v.{{mainctrl.version}}</small></h1>
 
-</head>
-<body>
-	<div ng-controller="MainCtrl as mainctrl">
-		<div class="well">
-			<h1>SU Picker</h1>
+	<input style="display:none" type="file" id="openfile" accept=".su,.segy,.sgy"></input>
+	<input style="display:none" type="file" id="savefile" accept=".pks,.json,.txt" nwsaveas></input>
 
-			<input style="display:none" type="file" id="openfile" accept=".su,.segy,.sgy"></input>
-			<input style="display:none" type="file" id="savefile" accept=".pks,.json,.txt" nwsaveas></input>
+	<div class="row">
+	  <div class="col-sm-4" style="float:left;">
 
-			<div class="row">
-				<div class="col-sm-4" style="float:left;">
+	    <button class="btn btn-primary btn-lg" ng-click="mainctrl.open()" ng-disabled="!mainctrl.wsIsOpen">Open SU File</button>
+	  </div>
+	  <div class="col-sm-4" style="float:left;">
+	    <button class="btn btn-primary btn-lg" ng-click="mainctrl.save()">Save Picks...</button>
+	  </div>
+	</div>
 
-					<button class="btn btn-primary btn-lg" ng-click="mainctrl.open()" ng-disabled="!mainctrl.wsIsOpen">Open SU File</button>
-				</div>
-				<div class="col-sm-4" style="float:left;">
-					<button class="btn btn-primary btn-lg" ng-click="mainctrl.save()">Save Picks...</button>
-				</div>
-			</div>
+	<div class="alert alert-warning" ng-hide="mainctrl.wsIsOpen==true">
+	  Wait for suServer to start...
+	</div>
 
-			<div class="alert alert-warning" ng-hide="mainctrl.wsIsOpen==true">
-				Wait for suServer to start...
-			</div>
+	<div class="row" ng-hide="mainctrl.filename == null">
+	  <div class="col-sm-4 well">
+	    <h3>Current file: {{mainctrl.basename}}</h3>
+	    <table style="width: auto;" class="table table-bordered">
+	      <tr>
+		<td>dt / ns</td>
+		<td>{{mainctrl.dt}}s / {{mainctrl.ns}}</td>
+	      </tr>
+	      <tr>
+		<td>FFIDs / Min / Max</td>
+		<td>{{mainctrl.nens}} / {{mainctrl.ens0}} / {{mainctrl.ensN}}</td>
+	      </tr>
+	      <tr>
+		<td>Curr FFID</td>
+		<td>{{mainctrl.currEnsNum}}</td>
+	      </tr>
+	    </table>
 
-			<div class="row" ng-hide="mainctrl.filename == null">
-				<div class="col-sm-4 well">
-					<h3>Current file: {{mainctrl.basename}}</h3>
-					<table style="width: auto;" class="table table-bordered">
-						<tr>
-							<td>dt / ns</td>
-							<td>{{mainctrl.dt}}s / {{mainctrl.ns}}</td>
-						</tr>
-						<tr>
-							<td>FFIDs / Min / Max</td>
-							<td>{{mainctrl.nens}} / {{mainctrl.ens0}} / {{mainctrl.ensN}}</td>
-						</tr>
-						<tr>
-							<td>Curr FFID</td>
-							<td>{{mainctrl.currEnsNum}}</td>
-						</tr>
-					</table>
+	    <p style="font-size: 18px">
+	      Decimate: <input type="checkbox" ng-model="mainctrl.decimate" style="margin-right: 10px;margin-left: 6px;"></br>
+	      <span width="100px">Start Time:</span><input type="number" step="0.1" ng-model="mainctrl.startT" style="margin-left: 4px; width: 100px;"></br>
+	      <span width="100px">End Time:</span> <input type="number" step="0.1" ng-model="mainctrl.endT" style="margin-left: 4px; width: 100px;"></br>
 
-					<p style="font-size: 18px">
-						Decimate: <input type="checkbox" ng-model="mainctrl.decimate" style="margin-right: 10px;margin-left: 6px;"></br>
-						<span width="100px">Start Time:</span><input type="number" step="0.1" ng-model="mainctrl.startT" style="margin-left: 4px; width: 100px;"></br>
-						<span width="100px">End Time:</span> <input type="number" step="0.1" ng-model="mainctrl.endT" style="margin-left: 4px; width: 100px;"></br>
+	  </div>
+	  <div class="col-sm-8" style="display: inline-block;">
+	    <d3-psd data="mainctrl.psd"></d3-psd>
+	  </div>
+	</div>
 
-					</div>
-					<div class="col-sm-8" style="display: inline-block;">
-						<d3-psd data="mainctrl.psd"></d3-psd>
-					</div>
-				</div>
+	<div class="row" ng-hide="mainctrl.filename == null">
+          <div class="col-sm-6" style="float: left;">
+	  <p style="font-size: 18px">
+	    <button class="btn btn-primary btn-lg" ng-enabled="mainctrl.currEnsNum" ng-click="mainctrl.fcheck()">Filter</button>
+            <math xmlns="http://www.w3.org/1998/Math/MathML"
+                  display="inline"><msub><mi>F</mi><mi>lo</mi></msub></math>:
+            {{mainctrl.flo}} Hz,
+             <math xmlns="http://www.w3.org/1998/Math/MathML"
+                   display="inline"><msub><mi>F</mi><mi>hi</mi></msub></math>:
+             {{mainctrl.fhi}} Hz.
+             </p>
+          </div>
+          <div class="col-sm-4" style="float: left;">
+	  <p style="font-size: 18px">
+	    Flo: <input id="flo" type="number" min="0" max="{{mainctrl.fhi}}"  ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px; display: inline-block;">
+	    Fhi: <input type="number" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-model="mainctrl.fhi" style="width: 80px;display: inline-block;">
+	  </p>
+          </div>
+	</div>
 
-				<div ng-hide="mainctrl.filename == null">
-					<p style="font-size: 18px">
-							<p style="font-size: 18px">
-							Filter: <input type="checkbox" ng-click="mainctrl.fcheck()" ng-model="mainctrl.checkVal" style="margin-right: 10px;margin-left: 6px; transform: scale(1.5);"> Flo: {{mainctrl.flo}} Hz, Fhi: {{mainctrl.fhi}} Hz</br>
+	<div class="row" ng-hide="mainctrl.filename == null">
+	  <div class="col-sm-4" style="float:left;">
+	    <button class="btn btn-primary btn-lg" ng-click="mainctrl.prev()">
+	      Prev <span class="glyphicon glyphicon-chevron-left"></span>
+	    </button>
+	  </div>
+	  <div class="col-sm-4">
+	    <button class="btn btn-primary btn-lg" ng-click="mainctrl.next()">
+	      <span class="glyphicon glyphicon-chevron-right"></span> Next
+	    </button>
+	  </div>
+	</div>
 
-							Flo: 0 <input id="flo" type="range" min="0" max="{{mainctrl.fhi}}" ng-mouseup="mainctrl.fcheck()" ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px; display: inline-block;"> {{mainctrl.fhi}}
-							Fhi: {{mainctrl.flo}} <input type="range" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-mouseup="mainctrl.fcheck()" ng-model="mainctrl.fhi" style="width: 80px;display: inline-block;"> {{mainctrl.fnyq}}
-						</p>
-					</div>
+	<div class="well">
+	  <d3-seis ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
+</div>
 
-					<div class="row" ng-hide="mainctrl.filename == null">
-						<div class="col-sm-4" style="float:left;">
-							<button class="btn btn-primary btn-lg" ng-click="mainctrl.prev()">
-								Prev <span class="glyphicon glyphicon-chevron-left"></span>
-							</button>
-						</div>
-						<div class="col-sm-4">
-							<button class="btn btn-primary btn-lg" ng-click="mainctrl.next()">
-								<span class="glyphicon glyphicon-chevron-right"></span> Next
-							</button>
-						</div>
-					</div>
+<div class="well">
+  <h3>Keys</h3>
+  <p><h4>Cursor motion</h4>
+    <kbd>h</kbd> / <kbd>l</kbd> - left/right; <kbd>j</kbd> / <kbd>k</kbd> - down/up.  Capital versions move by 10x; i.e. <kbd>H</kbd> moves by 10 traces where <kbd>h</kbd> move by 1.
+  <p><h4>Display</h4>
+    <kbd>z</kbd> / <kbd>Z</kbd> - zoom in or out in time; <kbd>t</kbd> / <kbd>T</kbd> - zoom in or out in offset; <kbd>y</kbd> / <kbd>Y</kbd> - increase trace amplitudes up or down.
+  <p><h4>Picking</h4>
+    <kbd>p</kbd> / <kbd>d</kbd> - pick/delete pick;
+  <p><h4>Mouse</h4>
+    Mouse click sets NMO anchor point; mouse position defines NMO velocity; mouse out of window to cancel NMO line.
 
-					<div class="well">
-						<d3-seis ng-if="mainctrl.data" data="mainctrl.data" setpicks="mainctrl.setpicks(picks)"></d3-ricker>
-						</div>
-
-						<div class="well">
-							<h3>Keys</h3>
-							<p><h4>Cursor motion</h4>
-								<kbd>h</kbd> / <kbd>l</kbd> - left/right; <kbd>j</kbd> / <kbd>k</kbd> - down/up.  Capital versions move by 10x; i.e. <kbd>H</kbd> moves by 10 traces where <kbd>h</kbd> move by 1.
-								<p><h4>Display</h4>
-									<kbd>z</kbd> / <kbd>Z</kbd> - zoom in or out in time; <kbd>t</kbd> / <kbd>T</kbd> - zoom in or out in offset; <kbd>y</kbd> / <kbd>Y</kbd> - increase trace amplitudes up or down.
-									<p><h4>Picking</h4>
-										<kbd>p</kbd> / <kbd>d</kbd> - pick/delete pick;
-										<p><h4>Mouse</h4>
-											Mouse click sets NMO anchor point; mouse position defines NMO velocity; mouse out of window to cancel NMO line.
-
-										</div>
+</div>
 
 
-									</div>
-								</body>
-								</html>
+</div>
+</body>
+</html>

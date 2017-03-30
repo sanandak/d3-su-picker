@@ -644,12 +644,14 @@ angular.module('psqlApp')
 	      pkmax = local[pkmaxI];
 	    }
 
-	    console.log(pickVal, cursI, cursT, zc0, zc1, zc2, zc3, pkmaxI, pkmax);
-
+            //	    console.log(pickVal, cursI, cursT, zc0, zc1, zc2, zc3, pkmaxI, pkmax);
+	    console.log(pickVal, cursI, cursT, tracr);
 	    // use tracr - a globally unique id to tag a trace
 	    // FIXME - is this true?
 	    var ampscale = traces[cursTrc].ampscale;
-	    var newpk = {tracr: tracr,
+	    var newpk = {ffid: traces[cursTrc].ffid,
+                         offset: traces[cursTrc].offset,
+                         tracr: tracr,
 			 // used to plot the pick in x
 			 tracens: traces[cursTrc].tracens,
 			 ens: traces[cursTrc].ffid,
@@ -663,23 +665,33 @@ angular.module('psqlApp')
 			 samps: traces[cursTrc].samps.slice(cursI-100,cursI+100).map(function(d){return d * ampscale;})
 			};
 
-	    // am I re-picking?  Search for cursTrc tracr in pickedTraces
-	    idx = pickedTraces.map(function(d) {return d.tracr;})
+	    // am I re-picking?  Search for cursTrc ffid_tracens in pickedTraces
+            // that is unique even if offset or tracr etc aren't set?
+            idx=-1;
+	    idx = pickedTraces.map(function(d) {return d.ffid + '_' + d.tracens;})
 		.indexOf(tracr);
 	    if (idx >= 0) { // found it...
 	      pickedTraces[idx] = newpk;
 	    } else { // new pick
 	      pickedTraces.push(newpk);
 	    }
-	    //console.log(pickedTraces);
+	    console.log(pickedTraces);
 	    // tell the controller about it...
 	    scope.setpicks({picks: pickedTraces});
-	    console.log('pick', firstTrc, pickedTraces);
+	    //console.log('pick', firstTrc, pickedTraces);
 
+	    // update the pick line (if this is a re-pick)
+	    pickg
+	      .selectAll('.picks')
+	      .transition()
+	      .attr('y', function(d) {
+		console.log('update',d, d.pickT);
+		return tScale2(d.pickT);
+	      });
 	    // or draw a new one.
 	    pickg
 	      .selectAll('.picks')
-	      .data(pickedTraces, function(d) {return d.tracr;})
+	      .data(pickedTraces, function(d) {return d.ffid+'_'+d.tracens;})
 	      .enter()
 	      .append('rect')
 	      .attr('class', 'picks')
@@ -695,17 +707,9 @@ angular.module('psqlApp')
 	      .attr('stroke', 'none')
 	    //            .attr('fill-opacity', 0.5)
 	      .attr('fill', 'yellow-green')
-	      .on('mouseover', handleMouseoverPick)
-	      .on('mouseout', handleMouseoutPick);
+	      //.on('mouseover', handleMouseoverPick)
+	      //.on('mouseout', handleMouseoutPick);
 
-	    // update the pick line (if this is a re-pick)
-	    pickg
-	      .selectAll('.picks')
-	      .transition()
-	      .attr('y', function(d) {
-		//console.log('update',d, d.pickT);
-		return tScale2(d.pickT);
-	      });
 	    break;
 	  }
 
