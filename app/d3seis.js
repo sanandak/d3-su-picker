@@ -493,6 +493,7 @@ angular.module('psqlApp')
       var idx;
       d3.select('body')
 	.on('keydown', function() {
+          console.log(d3.event.key, d3.event.code);
 	  // scale traces up and down
 	  if (d3.event.key === 'y' || d3.event.key === 'Y') {
 	    var scl = d3.event.shiftKey ? 0.5 : 2;
@@ -508,12 +509,14 @@ angular.module('psqlApp')
 	  case 'k':
 	  case 'J':
 	  case 'K':
+          case 'ArrowUp':
+          case 'ArrowDown':
 
 	    // calculate the new cursor position
 	    var td = tScale2.domain();
 	    var tdlen = td[1] - td[0];
 	    var incr = d3.event.shiftKey ? 10 : 1;
-	    incr *= (d3.event.code === 'KeyK') ? -1 : 1;
+	    incr *= (d3.event.code === 'KeyK' || d3.event.code == 'ArrowUp') ? -1 : 1;
 	    cursI += incr;
 	    cursT = traces[cursTrc].samps[cursI].t;
 	    //cursT = cursT + incr * dt;
@@ -565,10 +568,12 @@ angular.module('psqlApp')
 	  case 'l':
 	  case 'H':
 	  case 'L':
+          case 'ArrowLeft':
+          case 'ArrowRight':
 	    //            console.log('hl key', d3.event.code, d3.event.shiftKey, cursTrc, firstTrc, lastTrc);
 	    // calculate the new trace for the cursor
 	    var trcincr = d3.event.shiftKey ? 10 : 1;
-	    trcincr *= d3.event.code === 'KeyL' ? 1 : -1;
+	    trcincr *= (d3.event.code === 'KeyL' || d3.event.code === 'ArrowRight') ? 1 : -1;
 	    cursTrc = Math.min(cursTrc + trcincr, lastTrc);
 	    cursTrc = Math.max(cursTrc, firstTrc);
 

@@ -69,18 +69,16 @@
           <div class="col-sm-6" style="float: left;">
 	  <p style="font-size: 18px">
 	    <button class="btn btn-primary btn-lg" ng-enabled="mainctrl.currEnsNum" ng-click="mainctrl.fcheck()">Filter</button>
-            <math xmlns="http://www.w3.org/1998/Math/MathML"
-                  display="inline"><msub><mi>F</mi><mi>lo</mi></msub></math>:
+            F<sub>lo</sub>:
             {{mainctrl.flo}} Hz,
-             <math xmlns="http://www.w3.org/1998/Math/MathML"
-                   display="inline"><msub><mi>F</mi><mi>hi</mi></msub></math>:
+            F<sub>hi</sub>:
              {{mainctrl.fhi}} Hz.
              </p>
           </div>
           <div class="col-sm-4" style="float: left;">
 	  <p style="font-size: 18px">
-	    Flo: <input id="flo" type="number" min="0" max="{{mainctrl.fhi}}"  ng-model="mainctrl.flo" style="margin-right: 10px; width: 80px; display: inline-block;">
-	    Fhi: <input type="number" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-model="mainctrl.fhi" style="width: 80px;display: inline-block;">
+	    F<sub>lo</sub>: <input id="flo" type="number" min="0.1" max="{{mainctrl.fhi}}"  ng-model="mainctrl.flo" step="0.1" style="margin-right: 10px; width: 80px; display: inline-block;">
+	    F<sub>hi</sub>: <input type="number" min="{{mainctrl.flo}}" max="{{mainctrl.fnyq}}" ng-model="mainctrl.fhi" step="0.1" style="width: 80px;display: inline-block;">
 	  </p>
           </div>
 	</div>
