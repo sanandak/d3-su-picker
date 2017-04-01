@@ -48,6 +48,18 @@ axis path,
     stroke-width: 1px;
 }
 
+.markpts {
+    fill: red;
+    stroke: none;
+    r: 3px;
+}
+
+.markline {
+    fill: none;
+    stroke-width: 1px;
+    stroke: red;
+}
+
 .overlay {
     fill: none;
     stroke: none;

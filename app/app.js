@@ -135,10 +135,11 @@ app.controller('MainCtrl', ['$scope', function($scope) {
       console.log(filepath);
       console.log(pickedTraces);
       fs.writeFileSync(filepath,
-                       JSON.stringify(
-	                 {'sufile':self.filename,
-                          'picktime':new Date(),
-                          'picks': pickedTraces}));
+        JSON.stringify({
+          'sufile':self.filename,
+          'picktime':new Date(),
+          'picks': pickedTraces
+        }));
       //      fs.writeFileSync(filepath, JSON.stringify(pickedTraces));
     })
     chooser.click();
@@ -236,7 +237,7 @@ app.controller('MainCtrl', ['$scope', function($scope) {
 	       t1: self.startT,
 	       t2: self.endT,
 	       decimate: self.decimate};
-    
+
     ws.send(JSON.stringify(servMsg));
     ws.onmessage = function(evt) {
       var msg = JSON.parse(evt.data);
