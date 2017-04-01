@@ -187,7 +187,7 @@ angular.module('psqlApp')
 
       var updateFocusLines = function() {
         ntrcsFoc = lastTrc - firstTrc + 1;
-        console.log('update lines', lastTrc, firstTrc, ntrcsFoc);
+        //console.log('update lines', lastTrc, firstTrc, ntrcsFoc);
         var l = d3.selectAll('.flineg')
             .selectAll('.fline')
             .data(traces.slice(firstTrc, lastTrc + 1), function(d) {
@@ -494,7 +494,7 @@ angular.module('psqlApp')
             }
 
             //      console.log(pickVal, cursI, cursT, zc0, zc1, zc2, zc3, pkmaxI, pkmax);
-            console.log(pickVal, cursI, cursT, trchtFoc);
+            //console.log(pickVal, cursI, cursT, trchtFoc);
 
             var ampscale = trc.ampscale;
             // deep copy of trc.samps (other methods only copy a reference)
@@ -532,7 +532,7 @@ angular.module('psqlApp')
             /* sort...*/
             pickedTraces.sort(function(a,b) {return a.tracens - b.tracens;});
 
-            console.log(pickedTraces);
+            //console.log(pickedTraces);
             // tell the controller about it...
             scope.setpicks({picks: pickedTraces});
             //console.log('pick', firstTrc, pickedTraces);
