@@ -8,12 +8,10 @@
 /*global d3*/
 /*eslint-no-undef: "error"*/
 /*eslint no-console: ["error", {allow: ["log"]}]*/
-
 angular.module('psqlApp')
   .directive('d3Seis', [function() {
     function link(scope, element, attr) {
       'use strict';
-
       // size of the focus window (500x600)
       var margins2 = {left: 50,right: 30,top: 30,bottom: 30},
         w2 = 800 - margins2.left - margins2.right,
@@ -56,6 +54,12 @@ angular.module('psqlApp')
       tmax = d3.max(traces[0].samps, function(d){return d.t;});
 
       console.log('t', traces[0], tmin, tmax);
+
+      var tst0 = traces[0].samps.map(x=>x.v); // get just values
+      var intrp = d3.interpolateBasis(tst0);
+      var tst1 = d3.quantize(intrp, tst0.length*10); // over samp & spline interplate
+      var zc = tst1.map((x)=> Math.sign(x) < 0 ? -1 : 1);
+
 
       /* the core of the display is here, and repeated 4 times - 2 sets
        * of `lines` in the main and focus windows, and 2 sets of

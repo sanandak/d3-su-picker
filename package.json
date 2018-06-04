@@ -18,6 +18,7 @@
   "chromium-args": "--child-clean-exit",
   "dependencies": {
     "d3": "^4.6.0",
+    "d3-peaks": "0.0.1",
     "sprintf-js": "^1.0.3"
   }
 }
