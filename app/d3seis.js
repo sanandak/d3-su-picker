@@ -346,6 +346,10 @@ angular.module('psqlApp')
           }
 
           switch (d3.event.key) {
+            case 'a':
+              autop(traces[cursTrc], cursI);
+            break;
+
             // move cursor up/down
           case 'j':
           case 'k':
