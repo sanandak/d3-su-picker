@@ -31,6 +31,7 @@ angular.module('psqlApp')
       var oScale2 = d3.scaleLinear()
           .range([0,w2]);
 
+      var firstTime = true;
 
       //console.log(data.traces);
       data = scope.data;
@@ -131,7 +132,9 @@ angular.module('psqlApp')
       var focusLine = d3.line()
       //        .curve(d3.curveMonotoneY)
           .x(function(d) { return vScale2(displayScale * d.v);})
-          .y(function(d) { return tScale2(d.t);});
+          .y(function(d) { return tScale2(d.t);})
+          .curve(d3.curveBasis);
+          //.curve(d3.curveCardinal.tension(0.3));
 
       var focusArea = d3.area()
           .y(function(d) {return tScale2(d.t);})
@@ -347,7 +350,7 @@ angular.module('psqlApp')
 
           switch (d3.event.key) {
             case 'a':
-              autop(traces[cursTrc], cursI);
+              autop(traces[cursTrc], cursI, dt);
             break;
 
             // move cursor up/down
@@ -729,16 +732,6 @@ angular.module('psqlApp')
           .entries(data.traces);
         // returns [{key:'0', values:[trc0, trc1, ...]}]
 
-        traces = tracesByEnsemble[0].values;
-        currEns = tracesByEnsemble[0].key;
-        ensIdx = 0;
-        dt = data.dt;
-
-        tmin = d3.min(traces[0].samps, function(d){return d.t;});
-        tmax = d3.max(traces[0].samps, function(d){return d.t;});
-        tScale.domain([tmin, tmax]);
-        tScale2.domain([tmin, tmax]);
-
         // add a "trace number within ensemble" header word
         // and uniquify the trace by labeling with <ffid>_tracens
         for(var i=0; i<tracesByEnsemble.length; i++) {
@@ -749,19 +742,32 @@ angular.module('psqlApp')
         }
         //console.log('ens', tracesByEnsemble, currEns);
 
-        firstTrc = 0;
-        lastTrc = traces.length - 1;
-        ntrcs = traces.length;
-        npts = traces[0].samps.length;
+        traces = tracesByEnsemble[0].values;
+        currEns = tracesByEnsemble[0].key;
+        ensIdx = 0;
+        dt = data.dt;
 
-        cursI = Math.floor(npts/2);
-        cursT = traces[0].samps[cursI].t;
-        cursTrc = Math.floor((lastTrc - firstTrc) / 2);
+        if(firstTime) {
+          tmin = d3.min(traces[0].samps, function(d){return d.t;});
+          tmax = d3.max(traces[0].samps, function(d){return d.t;});
+          tScale2.domain([tmin, tmax]);
+
+          firstTrc = 0;
+          lastTrc = traces.length - 1;
+          ntrcs = traces.length;
+          npts = traces[0].samps.length;
+
+          cursI = Math.floor(npts/2);
+          cursT = traces[0].samps[cursI].t;
+          cursTrc = Math.floor((lastTrc - firstTrc) / 2);
+          firstTime = false;
+        }
         oScale2.domain([traces[firstTrc].offset, traces[lastTrc].offset]);
+
       }
 
       scope.$watch('data', function() {
-        console.log(data);
+        console.log('watch', data);
         data = scope.data;
         init();
 

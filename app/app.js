@@ -15,6 +15,7 @@ var sprintf = require('sprintf-js').sprintf;
 var cryp = require('crypto');
 const cexec = require('child_process').execFile;
 var suio = require('segy-js');
+const globX = 42;
 
 var app = angular.module('psqlApp', []);
 
@@ -92,9 +93,16 @@ app.controller('MainCtrl', ['$scope', function($scope) {
       self.filename = filepath;
       self.basename = path.basename(self.filename);
 
+      /*
       var nsdt = suio.getNSDT(self.filename);
       console.log(nsdt);
+      nsdt.then(function(x) {
+        console.log('nsdt', x);
+      }, function(e) {
+        console.error('fail', e);
+      });
       console.log(suio.readSU(self.filename));
+      */
 
       // get hdrs only
       servMsg = {cmd:'getSegyHdrs', filename:filepath};
