@@ -22,10 +22,20 @@ const getZC = function(a, st, en) {
   for(let i=st+1; i<=en; i++) {
     if(Math.sign(a[i]) != Math.sign(a[i-1])) zc.push(i);
   }
+  if(zc.length == 0) zc=[st, en]; // if no zero crossing were found.
+  if(zc.length == 1) zc.unshift(st); // insert start if only one zc found (??)
   return zc;
   //idx = b.reduce((zc, p, i, a) => i>0 ? (Math.sign(a[i]) != Math.sign(a[i-1]) ? zc.push(i) : zc) : 0, 0);
 }
 
+/* autopick peak and troughs around the current cursor location
+ * trc - the current trace
+ * cursI - index of cursor value
+ * dt - dt
+ * return - {picks:..., picks10:...}, where
+ *    picks: {peakVal:..., peakTime:..., trough0Val:, trough0Time, trough1Val:, trough1Time:}
+ *    picks10: same fields as picks, but the times/values are from the x10 spline interpolation
+ */
 var autop = function(trc, cursI, dt) {
   let a0 = trc.samps.map(x=>[x.t,x.v]); // convert to 2d array [[x1,y1], [x2,y2], ...]
   // and convert to flattened [x1,y1,x2,y2,...]
@@ -79,10 +89,11 @@ var autop = function(trc, cursI, dt) {
     trough0Val: sign*v0[trfpre], trough0Time: t0[trfpre],
     trough1Val: sign*v0[trfpost], trough1Time: t0[trfpost]
   }
-  console.log(picks);
-  console.log(picks10); //pk, trfpre, trfpost, zcpre, zcpost);
+  //console.log(picks);
+  //console.log(picks10); //pk, trfpre, trfpost, zcpre, zcpost);
   //let ppInt = {peakVal: pk.val, peakTime: t10[pk.idx],  troughVal: trf.val, troughTime: t10[trf.idx]};
   //console.log(ppInt);
 
   console.log('in autop', trc.samps[cursI], cursI);
+  return({picks:picks, picks10:picks10});
 }

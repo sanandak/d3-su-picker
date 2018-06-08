@@ -18,7 +18,7 @@ angular.module('psqlApp')
         h2 = 600 - margins2.top - margins2.bottom;
 
       var data;
-      var dt,traces, currEns, ensIdx, pickedTraces = [];
+      var dt, traces, currEns, ensIdx, pickedTraces = [];
       var firstTrc, lastTrc, ntrcs, npts, cursI, cursT, cursTrc;
       var tracesByEnsemble;
       var displayScale = 1; // scale the traces in the "focus" panel by this
@@ -30,14 +30,15 @@ angular.module('psqlApp')
       var tScale2 = d3.scaleLinear();
       var oScale2 = d3.scaleLinear()
           .range([0,w2]);
+      var vScale2;
 
       var firstTime = true;
 
-      //console.log(data.traces);
+      // get data from app.js
       data = scope.data;
-      init();
+      init(); // populate ``traces''
 
-      console.log('dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
+      //console.log('dt = ', dt, 'ntrcs =', ntrcs, 'npts =', npts);
 
       /*  form of the data:
           self.data = {dt: dt,
@@ -51,17 +52,11 @@ angular.module('psqlApp')
       */
 
       // generate the y- (time) scale for the main window
-      tmin = d3.min(traces[0].samps, function(d){return d.t;});
-      tmax = d3.max(traces[0].samps, function(d){return d.t;});
+      npts = traces[0].samps.length;
+      tmin = traces[0].samps[0].t; //d3.min(traces[0].samps, function(d){return d.t;});
+      tmax = traces[0].samps[npts-1].t; //d3.max(traces[0].samps, function(d){return d.t;});
 
-      console.log('t', traces[0], tmin, tmax);
-
-      var tst0 = traces[0].samps.map(x=>x.v); // get just values
-      var intrp = d3.interpolateBasis(tst0);
-      var tst1 = d3.quantize(intrp, tst0.length*10); // over samp & spline interplate
-      var zc = tst1.map((x)=> Math.sign(x) < 0 ? -1 : 1);
-
-
+      //console.log('t', traces[0], tmin, tmax);
       /* the core of the display is here, and repeated 4 times - 2 sets
        * of `lines` in the main and focus windows, and 2 sets of
        * `areas`.  The logic is the same in all cases:
@@ -79,7 +74,7 @@ angular.module('psqlApp')
           .append('g')
           .attr('transform', 'translate(' + margins2.left + ',' + margins2.top + ')');
 
-      var vScale2 = d3.scaleLinear().range([0, w2]);
+      vScale2 = d3.scaleLinear().range([0, w2]);
       tScale2 = d3.scaleLinear().range([0, h2]);
       var oAxis2 = d3.axisTop(oScale2);
 
@@ -140,16 +135,16 @@ angular.module('psqlApp')
           .y(function(d) {return tScale2(d.t);})
           .x0(vScale2(0))
       //        .curve(d3.curveMonotoneY)
-          .x1(function(d) {return vScale2(displayScale * d.v);});
-
-
+          .x1(function(d) {return vScale2(displayScale * d.v);})
+          .curve(d3.curveBasis);
 
       var cursorText;
       var cText = focus.append('g')
           .append('text')
           .attr('id', 'ctext')
           .attr('class', 'ctext')
-          .attr('transform', 'translate(' + w2 / 2 + ',' + (h2 + margins2.top) + ')')
+          .attr('transform', `translate(${w2/2}, ${h2+margins2.top})`)
+          //.attr('transform', 'translate(' + w2 / 2 + ',' + (h2 + margins2.top) + ')')
           .text(cursorText);
 
       var cursor = focus.append('g')
@@ -349,7 +344,17 @@ angular.module('psqlApp')
           }
 
           switch (d3.event.key) {
-            case 'a':
+            case 'R': // reset to defaults
+              displayScale = 1;
+              firstTime = true;
+              init();
+              updateFocusLines();
+              updateFocusAreas();
+              updateCursor();
+              updatePicks();
+              break;
+
+            case 'a': // autopick the peak nearest the cursor
               autop(traces[cursTrc], cursI, dt);
             break;
 
@@ -747,6 +752,8 @@ angular.module('psqlApp')
         ensIdx = 0;
         dt = data.dt;
 
+        // the user may have set the tmin/max or first/lasttrc
+        // using the keys.  Don't mess with them.
         if(firstTime) {
           tmin = d3.min(traces[0].samps, function(d){return d.t;});
           tmax = d3.max(traces[0].samps, function(d){return d.t;});
@@ -763,7 +770,6 @@ angular.module('psqlApp')
           firstTime = false;
         }
         oScale2.domain([traces[firstTrc].offset, traces[lastTrc].offset]);
-
       }
 
       scope.$watch('data', function() {
